@@ -4,6 +4,8 @@ Pont entre la page et les scripts du skill, exécutés tels quels dans Pyodide.
 Chaque fonction publique renvoie du texte court : c'est ce que Claude lit après un appel d'outil.
 """
 import io, os, re, sys, json, contextlib
+import warnings
+warnings.filterwarnings('ignore', message='Workbook contains no default style')
 from collections import Counter
 
 sys.path.insert(0, '/skill/scripts')
@@ -258,3 +260,23 @@ def run_python(code):
 
 def output_ready():
     return os.path.exists(OUT)
+
+def template_ok():
+    """'' si l'extraction a la forme qu'attend pipeline.py, sinon la raison en une ligne."""
+    import zipfile
+    try:
+        z = zipfile.ZipFile(TEMPLATE)
+        wb = z.read('xl/workbook.xml').decode('utf-8', 'replace')
+        ss = z.read('xl/sharedStrings.xml').decode('utf-8', 'replace')[:600]
+    except Exception:
+        return "ce n'est pas une extraction Gaia (fichier ou parties manquantes)"
+    ordre = re.findall(r'<sheet [^>]*name="([^"]+)"', wb)
+    if ordre[:2] != ['Produit', 'Logistique']:
+        return f"onglets {', '.join(ordre[:3])} : Produit et Logistique doivent être les deux premiers"
+    if not re.search(r'<sst count="\d+" uniqueCount="\d+"', ss):
+        return "fichier ré-enregistré dans Excel (en-tête sharedStrings modifié), Gaia le refusera"
+    for i in (1, 2):
+        xml = z.read(f'xl/worksheets/sheet{i}.xml').decode('utf-8', 'replace')
+        if f'<row r="{pipeline.LAST_TPL}"' not in xml:
+            return f"ligne modèle {pipeline.LAST_TPL} absente de l'onglet {ordre[i-1]}"
+    return ''

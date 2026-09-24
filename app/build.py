@@ -20,6 +20,9 @@ if len(roues) < 2:
 for w in roues:
     fichiers['/wheels/' + os.path.basename(w)[:-len('.wasm')]] = w
 
+for f in glob.glob(os.path.join(ICI, 'defaults', '*.xlsx')):
+    fichiers['/defaults/' + os.path.basename(f)] = f
+
 bundle = {k: base64.b64encode(open(v, 'rb').read()).decode('ascii') for k, v in fichiers.items()}
 html = open(PAGE, encoding='utf-8').read()
 bloc = '<script type="application/json" id="bundle">' + json.dumps(bundle, separators=(',', ':')) + '</script>'
