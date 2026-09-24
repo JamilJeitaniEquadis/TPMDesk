@@ -7,8 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root{
   --primary:#112032; --accent:#58EA9D;
@@ -299,7 +297,7 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
         Excel &rarr; Equa Excel<span class="chev" aria-hidden="true">&rarr;</span>
       </button>
       <div class="fold" id="fold-mod">
-        <button data-v="pipeline" aria-current="true">Pipeline</button>
+        <button data-v="pipeline" aria-current="true">Generate with Claude</button>
         <button data-v="memoire">Reference</button>
       </div>
     </nav>
@@ -310,35 +308,8 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
   </aside>
 
   <main>
-    <!-- ============ INSPECTEUR ============ -->
-        <!-- ============ PIPELINE : 3 ÉTAPES ============ -->
+    <!-- ============ GENERATE WITH CLAUDE ============ -->
     <section class="view on" id="v-pipeline">
-      <div class="stepper" role="tablist">
-        <button data-step="inspect" aria-selected="true"><b>1</b>Inspect export</button>
-        <button data-step="generate" aria-selected="false"><b>2</b>Generate</button>
-        <button data-step="valid" aria-selected="false"><b>3</b>Validate Equa Excel</button>
-      </div>
-      <div class="pane on" id="p-inspect">
-      <div class="modhead"><span class="mod">Excel &rarr; Equa Excel</span><span class="sep">/</span><span class="tool">Step 1 &middot; Inspect export</span></div>
-      <h1>Check an export before you work on it</h1>
-      <p class="lede">Drop an export from the source pool. The page reads its structure, finds the categories and
-        values the pipeline can't translate yet, and flags defects in the source data. Five seconds
-        here saves an integration round trip.</p>
-
-      <label class="drop" id="dropA" tabindex="0" role="button">
-        <input type="file" id="fileA" accept=".xlsx,.xlsm">
-        <b>Drop an export</b>
-        <span>or click to choose a file &middot; .xlsx</span>
-      </label>
-      <div id="outA"></div>
-            <div class="stepnav">
-          <span></span>
-          <span class="why" id="why1">Inspect an export to unlock the next step</span>
-          <button class="btn" data-go="generate" id="next1" disabled>Next &rarr;</button>
-        </div>
-      </div>
-      <div class="pane" id="p-generate">
-      <div class="modhead"><span class="mod">Excel &rarr; Equa Excel</span><span class="sep">/</span><span class="tool">Step 2 &middot; Generate</span></div>
       <h1>Generate with Claude</h1>
       <p class="lede">Claude works here with your migration skill. It runs the skill&rsquo;s own scripts in this page:
         it inspects the export, picks classification paths from the extraction&rsquo;s list, generates the
@@ -347,7 +318,7 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
       <div class="slots">
         <label class="slot" id="slotExp" tabindex="0">
           <input type="file" id="fileExp" accept=".xlsx,.xlsm">
-          <em>SupplierXM export</em><b id="nomExp">Inspect one in step 1, or drop it here</b>
+          <em>SupplierXM export</em><b id="nomExp">Drop the export from the source pool</b>
         </label>
         <label class="slot" id="slotTpl" tabindex="0">
           <input type="file" id="fileTpl" accept=".xlsx,.xlsm">
@@ -373,11 +344,10 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
       </div>
 
       <div class="actions" id="actions">
-        <button class="btn ghost hide" id="actInspect">Inspect</button>
+        <button class="btn ghost" id="actInspect">Inspect</button>
         <button class="btn ghost" id="actGen">Generate</button>
         <button class="btn ghost" id="actCheck" disabled>Validate</button>
         <button class="btn" id="actSave" disabled>Download Equa Excel</button>
-        <button class="btn ghost" id="actStep3" disabled>Open in step 3 &rarr;</button>
       </div>
       <pre class="hide" id="actOut"></pre>
 
@@ -393,32 +363,6 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
         <pre><button class="copy">Copy</button>python scripts/pipeline.py --export export.xlsx --template extraction.xlsx --out output.xlsx --report log.json</pre>
         <p class="note">Then come back to step 3 and validate what came out.</p>
       </details>
-        <div class="stepnav">
-          <button class="btn ghost" data-go="inspect">&larr; Back</button>
-          <span class="why"></span>
-          <button class="btn" data-go="valid">Next &rarr;</button>
-        </div>
-      </div>
-      <div class="pane" id="p-valid">
-      <div class="modhead"><span class="mod">Excel &rarr; Equa Excel</span><span class="sep">/</span><span class="tool">Step 3 &middot; Validate Equa Excel</span></div>
-      <h1>Check a file before you submit it</h1>
-      <p class="lede">Drop the file you are about to submit. Add the template extraction in the same drop — together or
-        one after the other — and the page tells them apart on its own: the filled file gets checked,
-        the template supplies the value lists.</p>
-
-      <label class="drop" id="dropB" tabindex="0" role="button">
-        <input type="file" id="fileB" accept=".xlsx,.xlsm" multiple>
-        <b>Drop the Equa Excel</b>
-        <span>add the template extraction alongside it to check list values too</span>
-      </label>
-      <div id="loaded" class="loadlist"></div>
-      <div id="outB"></div>
-            <div class="stepnav">
-          <button class="btn ghost" data-go="generate">&larr; Back</button>
-          <span class="why"></span>
-          <span></span>
-        </div>
-      </div>
     </section>
 
     <!-- ============ MÉMOIRE ============ -->
@@ -493,40 +437,6 @@ document.querySelectorAll('.rail nav button[data-v]').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+b.dataset.v));
   window.scrollTo(0,0);
 });
-/* stepper : l'étape 1 ouvre les suivantes */
-let etape1Faite=false;
-try{ etape1Faite = localStorage.getItem('pm-step1')==='1'; }catch(e){}
-
-function majVerrous(){
-  document.querySelectorAll('.stepper button').forEach(b=>{
-    const verrou = !etape1Faite && b.dataset.step!=='inspect';
-    b.disabled=verrou;
-    b.title = verrou ? 'Inspect an export first' : '';
-  });
-  const s1=document.querySelector('.stepper button[data-step="inspect"]');
-  if(s1) s1.dataset.done = etape1Faite ? '1' : '0';
-  const n1=$('#next1'), w1=$('#why1');
-  if(n1) n1.disabled=!etape1Faite;
-  if(w1) w1.textContent = etape1Faite ? '' : 'Inspect an export to unlock the next step';
-}
-function allerEtape(cle){
-  if(!etape1Faite && cle!=='inspect') return;
-  document.querySelectorAll('.stepper button').forEach(x=>x.setAttribute('aria-selected', x.dataset.step===cle));
-  document.querySelectorAll('.pane').forEach(pn=>pn.classList.toggle('on', pn.id==='p-'+cle));
-  try{ localStorage.setItem('pm-step', cle); }catch(e){}
-  window.scrollTo(0,0);
-}
-function ouvrirEtapes(){
-  if(etape1Faite) return;
-  etape1Faite=true;
-  try{ localStorage.setItem('pm-step1','1'); }catch(e){}
-  majVerrous();
-}
-document.querySelectorAll('.stepper button').forEach(b=>b.onclick=()=>allerEtape(b.dataset.step));
-document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>allerEtape(b.dataset.go));
-majVerrous();
-try{ const e=localStorage.getItem('pm-step'); if(e) allerEtape(e); }catch(e){}
-
 /* sections repliables, état conservé d'une visite à l'autre */
 function plier(cle,ouvert){
   const tete=document.querySelector('[data-fold="'+cle+'"]');
@@ -556,357 +466,6 @@ document.querySelectorAll('.copy').forEach(b=>b.onclick=e=>{
   navigator.clipboard.writeText(txt).then(()=>{b.textContent='Copied'; setTimeout(()=>b.textContent='Copy',1400);},()=>{});
 });
 
-/* ---------- clé de contrôle des identifiants 13 chiffres ---------- */
-function cleOk(g){
-  const d=String(g).trim();
-  if(!/^\d{13}$/.test(d)) return false;
-  let s=0; for(let i=0;i<12;i++) s += (+d[i]) * (i%2===0?1:3);
-  return (10 - s%10)%10 === +d[12];
-}
-
-/* ---------- lecture d'un classeur ---------- */
-function lire(file){
-  return new Promise((res,rej)=>{
-    const r=new FileReader();
-    r.onerror=()=>rej(new Error('Could not read the file'));
-    r.onload=e=>{ try{ res(XLSX.read(new Uint8Array(e.target.result),{type:'array'})); }catch(err){ rej(err); } };
-    r.readAsArrayBuffer(file);
-  });
-}
-const grille = (wb,nom,raw) => nom in wb.Sheets
-  ? XLSX.utils.sheet_to_json(wb.Sheets[nom],{header:1,defval:null,raw:!!raw,blankrows:true}) : null;
-
-function brancher(zone,input,fn,fnMulti){
-  const open=()=>input.click();
-  zone.addEventListener('click',e=>{ if(e.target!==input) { e.preventDefault(); open(); } });
-  zone.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
-  ['dragover','dragenter'].forEach(t=>zone.addEventListener(t,e=>{e.preventDefault(); zone.classList.add('hot');}));
-  ['dragleave','drop'].forEach(t=>zone.addEventListener(t,e=>{e.preventDefault(); zone.classList.remove('hot');}));
-  zone.addEventListener('drop',e=>{
-    const fs=e.dataTransfer.files; if(!fs||!fs.length) return;
-    fnMulti ? fnMulti(fs) : fn(fs[0]);
-  });
-  input.addEventListener('change',()=>{
-    if(!input.files.length) return;
-    fnMulti ? fnMulti(input.files) : fn(input.files[0]);
-  });
-}
-const attente = (box,msg) => { box.innerHTML=''; box.appendChild(el('p','muted',msg)); };
-const erreur  = (box,e)   => { box.innerHTML=''; const d=el('div','verdict stop');
-  d.innerHTML='<span class="mark">×</span><div><b>Unreadable file</b><p>'+esc(e.message||e)+'</p></div>'; box.appendChild(d); };
-
-/* =======================================================================
-   INSPECTEUR
-   ======================================================================= */
-const CTRL = [
-  ['packagingInformationList.packagingTypeCode','V_PACK','Packaging type'],
-  ['colorGroup','V_COLOR','Colour'],
-  ['productTextureList.productTextureCode','V_TEXTURE','Texture'],
-  ['skinTypeList.skinTypeCode','V_SKIN','Skin type'],
-  ['areaOfUseList.areaOfUseCode','V_AREA','Area of use'],
-  ['targetConsumerAgeList.targetConsumerAgeCode','V_AGE','Age group'],
-  ['sunburnProtectionFactor','V_SPF','Sun protection factor'],
-  ['originCountry','V_COUNTRY','Country of origin'],
-  ['countryOfSettlement','V_COUNTRY','Country of settlement'],
-  ['dataCarrierTypeCode','V_BARCODE','Barcode type'],
-  ['targetConsumerGender','V_GENDER','Target consumer'],
-  ['typeOfDangerousSubstanceOrArticle','V_SUBST','Dangerous substance'],
-  ['classOfDangerousGoods','V_DANGER','Hazard class'],
-  ['orderingUnitOfMeasure','V_ORDER_UOM','Ordering unit']
-];
-const CTRL_LOG = [
-  ['packagingInformationList.packagingTypeCode','V_PACK','Packaging type (logistics)'],
-  ['packagingInformationList.platformTermsAndConditionsCode','V_PLATFORM_TC','Pallet support'],
-  ['orderingUnitOfMeasure','V_UOM_FACT','Invoicing unit'],
-  ['dataCarrierTypeCode','V_BARCODE','Barcode type (logistics)']
-];
-
-function indexer(rows){           // export : ligne 4 = chemin technique, données dès la ligne 8
-  const idx={};
-  const head = rows[3]||[];
-  for(let c=1;c<head.length;c++){
-    const p = head[c]; if(p==null||p==='') continue;
-    (idx[String(p)] = idx[String(p)] || []).push(c);
-  }
-  return {idx, data: rows.slice(7).filter(r=>r && r.some(v=>v!=null&&v!==''))};
-}
-const val = (F,row,path,i) => { const c=F.idx[path]; return (c&&c[i||0]!=null) ? row[c[i||0]] : null; };
-const nb  = (F,path) => (F.idx[path]||[]).length;
-
-async function inspecter(file){
-  const box=$('#outA'); attente(box,'Reading '+file.name+'…');
-  let wb; try{ wb=await lire(file); }catch(e){ return erreur(box,e); }
-
-  const gp = grille(wb,'Product');
-  if(!gp){ return erreur(box,{message:"No \u2018Product\u2019 sheet found. This file is not an export from the source pool."}); }
-  const P = indexer(gp);
-  const gl = grille(wb,'Logistical units');
-  const L = gl ? indexer(gl) : null;
-  const img = grille(wb,'Images'), doc = grille(wb,'Documents');
-
-  box.innerHTML='';
-  box.appendChild(el('h2',null,file.name));
-
-  /* --- volumétrie --- */
-  const g=el('div','gauge');
-  const mk=(n,t)=>{ const d=el('div'); d.appendChild(el('b',null,n)); d.appendChild(el('span',null,t)); return d; };
-  g.appendChild(mk(P.data.length,'products'));
-  if(L) g.appendChild(mk(L.data.length,'logistic units'));
-  if(img) g.appendChild(mk(Math.max(0,img.slice(7).filter(r=>r&&r.some(v=>v!=null&&v!=='')).length),'visuals'));
-  if(doc) g.appendChild(mk(Math.max(0,doc.slice(7).filter(r=>r&&r.some(v=>v!=null&&v!=='')).length),'documents'));
-  g.appendChild(mk(Object.keys(P.idx).length,'technical paths'));
-  box.appendChild(g);
-
-  /* --- catégories sans chemin --- */
-  const inconnues={};
-  P.data.forEach(r=>{
-    const k=code(val(P,r,'kind'));
-    const cls=(lab(val(P,r,'isClassifiedIn'))||'').toUpperCase();
-    const nom=String(val(P,r,'namePublicLong')||'').toLowerCase();
-    const web=lab(val(P,r,'org1337WebsiteProductCategory'))||'';
-    if(cls.includes('COFFRET')||web.includes('Coffret')||nom.includes('coffret')) return;
-    if(cls.includes('BAUME LEVRES')) return;
-    if(T.classifKind.includes(k)) return;
-    const brick=T.gpc[k];
-    if(!brick || !T.classifBricks.includes(brick)){
-      const key=String(val(P,r,'kind')||'(vide)');
-      inconnues[key]=(inconnues[key]||0)+1;
-    }
-  });
-  const nInc=Object.keys(inconnues).length;
-  const vC=el('div','verdict '+(nInc?'stop':'ok'));
-  vC.innerHTML = nInc
-    ? '<span class="mark">×</span><div><b>'+nInc+' categor'+(nInc>1?'ies':'y')+' with no classification path</b>'+
-      '<p>Without a decision, these products ship with an empty classification.</p></div>'
-    : '<span class="mark">✓</span><div><b>Every category has a path</b><p>Nothing to decide here.</p></div>';
-  box.appendChild(vC);
-  if(nInc){
-    const t=el('table'); t.innerHTML='<thead><tr><th>Source category</th><th>Products</th><th>Example product</th></tr></thead>';
-    const tb=el('tbody');
-    Object.entries(inconnues).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
-      const ex=P.data.find(r=>String(val(P,r,'kind')||'')===k);
-      const tr=el('tr');
-      tr.innerHTML='<td>'+esc(k)+'</td><td class="num">'+n+'</td><td class="muted">'+
-        esc(ex?String(val(P,ex,'namePublicLong')||'').slice(0,60):'')+'</td>';
-      tb.appendChild(tr);
-    });
-    t.appendChild(tb); const sc=el('div','scroll'); sc.appendChild(t); box.appendChild(sc);
-  }
-
-  /* --- valeurs inconnues --- */
-  const vals={};
-  const scan=(F,liste)=>{ if(!F) return; liste.forEach(([path,tab,titre])=>{
-    const table=T.tables[tab]; const n=nb(F,path); if(!n) return;
-    F.data.forEach(r=>{ for(let i=0;i<n;i++){ const v=val(F,r,path,i);
-      if(v==null||v==='') continue;
-      if(!(code(v) in table)){ const key=titre+'|'+String(v); vals[key]=(vals[key]||0)+1; } } });
-  }); };
-  scan(P,CTRL); scan(L,CTRL_LOG);
-  const nVal=Object.keys(vals).length;
-  const vV=el('div','verdict '+(nVal?'warn':'ok'));
-  vV.innerHTML = nVal
-    ? '<span class="mark">!</span><div><b>'+nVal+' unknown list value'+(nVal>1?'s':'')+'</b>'+
-      '<p>Each would be written empty, with no error message. Translate them before generating.</p></div>'
-    : '<span class="mark">✓</span><div><b>Every value is translated</b><p>Nothing lost silently.</p></div>';
-  box.appendChild(vV);
-  if(nVal){
-    const t=el('table'); t.innerHTML='<thead><tr><th>Domain</th><th>Source value</th><th>Occurrences</th></tr></thead>';
-    const tb=el('tbody');
-    Object.entries(vals).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
-      const [titre,v]=k.split('|');
-      const tr=el('tr'); tr.innerHTML='<td>'+esc(titre)+'</td><td class="mono">'+esc(v)+'</td><td class="num">'+n+'</td>';
-      tb.appendChild(tr);
-    });
-    t.appendChild(tb); const sc=el('div','scroll'); sc.appendChild(t); box.appendChild(sc);
-  }
-
-  /* --- qualité de la source --- */
-  box.appendChild(el('h3',null,'Source data quality'));
-  box.appendChild(el('p','note','These belong to the client. Report them; don\u2019t quietly paper over them.'));
-  let sansMarque=0;
-  const nRole=nb(P,'partyInformationList.partyRoleCode');
-  P.data.forEach(r=>{ let ok=false;
-    for(let i=0;i<nRole;i++) if(code(val(P,r,'partyInformationList.partyRoleCode',i))==='BRAND_OWNER') ok=true;
-    if(!ok) sansMarque++; });
-  const glnKo={};
-  ['contactInformationList.contactGLN','partyInformationList.partyGLN'].forEach(path=>{
-    const n=nb(P,path);
-    P.data.forEach(r=>{ for(let i=0;i<n;i++){ const v=val(P,r,path,i);
-      if(v==null||v==='') continue;
-      if(!cleOk(v)) glnKo[String(v)]=(glnKo[String(v)]||0)+1; } });
-  });
-  const t3=el('table'); t3.innerHTML='<thead><tr><th>Check</th><th>Result</th><th></th></tr></thead>';
-  const tb3=el('tbody');
-  const ligne=(quoi,res,etat)=>{ const tr=el('tr');
-    tr.innerHTML='<td>'+esc(quoi)+'</td><td class="num">'+esc(res)+'</td><td><span class="pill p-'+etat+'">'+
-      (etat==='ok'?'clean':etat==='warn'?'report it':'blocking')+'</span></td>'; tb3.appendChild(tr); };
-  const pct=P.data.length?Math.round(sansMarque*100/P.data.length):0;
-  ligne('Products with no brand owner', sansMarque+' / '+P.data.length+'  ('+pct+'%)', sansMarque?'warn':'ok');
-  const nGln=Object.values(glnKo).reduce((a,b)=>a+b,0);
-  ligne('Partner identifiers failing the check digit', nGln?nGln+' occurrences ('+Object.keys(glnKo).length+' values)':'none', nGln?'warn':'ok');
-  if(L){
-    const parent={}; L.data.forEach(r=>{ const ch=val(L,r,'children.gtin'); if(ch) (parent[String(ch)]=parent[String(ch)]||[]).push(String(val(L,r,'gtin'))); });
-    const prof={};
-    P.data.forEach(r=>{ let cur=String(val(P,r,'gtin')||''), d=0, seen={};
-      while(d<4){ const ps=parent[cur]; if(!ps||seen[cur]) break; seen[cur]=1; cur=ps[0]; d++; } prof[d]=(prof[d]||0)+1; });
-    const maxN=Math.max(...Object.keys(prof).map(Number));
-    ligne('Packaging levels above the product',
-      Object.keys(prof).sort().map(k=>k+' level(s): '+prof[k]).join('   '), maxN>1?'warn':'ok');
-    if(maxN>1) var notePal='A single-block template would take only the first level. Check this before generating.';
-  }
-  t3.appendChild(tb3); const sc3=el('div','scroll'); sc3.appendChild(t3); box.appendChild(sc3);
-  if(typeof notePal!=='undefined' && notePal) box.appendChild(el('p','note',notePal));
-
-  /* ce résumé part avec les questions posées à Claude dans l'étape 2 */
-  const res=['File: '+file.name, 'Products: '+P.data.length+(L?'   Logistic units: '+L.data.length:'')];
-  if(nInc) res.push('Categories with no classification path: '+
-    Object.entries(inconnues).map(([k,n])=>k+' ('+n+')').join(', '));
-  else res.push('Categories: all mapped');
-  if(nVal) res.push('Unknown list values: '+
-    Object.entries(vals).map(([k,n])=>k.replace('|',' = ')+' ('+n+')').join('; '));
-  else res.push('List values: all translated');
-  res.push('Products with no brand owner: '+sansMarque+' of '+P.data.length);
-  if(Object.keys(glnKo).length) res.push('Partner identifiers failing the check digit: '+
-    Object.entries(glnKo).map(([v,n])=>v+' ×'+n).join(', '));
-  dernierScan=res.join('\n');
-  const ctx=$('#askctx');
-  if(ctx) ctx.textContent='Enter to send \u00b7 '+file.name+' attached to your questions';
-  ouvrirEtapes();
-  if(nInc||nVal){
-    const b=el('button','btn','Ask Claude about this \u2192');
-    b.style.marginTop='6px'; b.onclick=()=>allerEtape('generate');
-    box.appendChild(b);
-  }
-}
-
-/* =======================================================================
-   VALIDATEUR
-   ======================================================================= */
-let fB=null, fC=null;
-
-async function dvDuGabarit(file){          // règles de liste lues dans le XML du gabarit
-  try{
-    const zip = await JSZip.loadAsync(file);
-    const wb  = await lire(file);
-    const listes = {};
-    ['Lists_Prd','Lists_Log'].forEach(n=>{ const g=grille(wb,n); if(g) listes[n]=g; });
-    const regles = {};                      // 'Produit'|'Logistique' -> {colonne: [valeurs]}
-    for(const [feuille,fichier] of [['Produit','xl/worksheets/sheet1.xml'],['Logistique','xl/worksheets/sheet2.xml']]){
-      const f = zip.file(fichier); if(!f) continue;
-      const xml = await f.async('string');
-      const out = {};
-      const re = /<dataValidation[^>]*?type="list"[^>]*?sqref="([^"]+)"[^>]*?>[\s\S]*?<formula1>([^<]*)<\/formula1>/g;
-      const re2 = /<dataValidation([^>]*)\/>|<dataValidation([^>]*)>([\s\S]*?)<\/dataValidation>/g;
-      let m;
-      while((m = re2.exec(xml))){
-        const bloc = m[0];
-        if(!/type="list"/.test(bloc)) continue;
-        const sq = /sqref="([^"]+)"/.exec(bloc); if(!sq) continue;
-        let f1 = /<formula1>([^<]*)<\/formula1>/.exec(bloc);
-        if(!f1) f1 = /formula1="([^"]*)"/.exec(bloc);
-        if(!f1) continue;
-        const ref = /(Lists_\w+)!\$([A-Z]+)\$(\d+):\$([A-Z]+)\$(\d+)/.exec(f1[1]);
-        if(!ref || !listes[ref[1]]) continue;
-        const col = XLSX.utils.decode_col(ref[2]);
-        const vals = [];
-        for(let r=+ref[3]-1; r<=+ref[5]-1; r++){
-          const row = listes[ref[1]][r]; const v = row ? row[col] : null;
-          if(v!=null && v!=='') vals.push(String(v));
-        }
-        if(!vals.length) continue;
-        sq[1].split(/\s+/).forEach(plage=>{
-          const c = /^([A-Z]+)/.exec(plage); if(c) out[c[1]] = vals;
-        });
-      }
-      regles[feuille] = out;
-    }
-    return regles;
-  }catch(e){ return null; }
-}
-
-async function valider(){
-  const box=$('#outB');
-  if(!fB) return;
-  attente(box,'Checking '+fB.name+'…');
-  let wb, zipNames=null;
-  try{
-    wb = await lire(fB);
-    try{ const z = await JSZip.loadAsync(fB); zipNames = Object.keys(z.files); }catch(e){}
-  }catch(e){ return erreur(box,e); }
-
-  if(!('Produit' in wb.Sheets)) return erreur(box,{message:"No \u2018Produit\u2019 sheet found. This file is not in extraction format."});
-
-  const regles = fC ? await dvDuGabarit(fC) : null;
-  const pb=[]; let lignes=0;
-
-  for(const feuille of ['Produit','Logistique']){
-    const g = grille(wb,feuille,true); if(!g) continue;
-    const ids = (g[0]||[]).map(v=>String(v==null?'':v));
-    const data = g.slice(6);
-    if(feuille==='Produit') lignes = data.filter(r=>r&&r[0]!=null&&r[0]!=='').length;
-    data.forEach((row,ri)=>{
-      if(!row) return;
-      for(let c=0;c<ids.length;c++){
-        const v=row[c]; if(v==null||v==='') continue;
-        const id=ids[c], L=7+ri, col=XLSX.utils.encode_col(c);
-        const lim=T.limits[id];
-        if(lim && typeof v==='string' && v.length>+lim)
-          pb.push([feuille,L,col,id,'length',v.length+' > '+lim]);
-        if(T.txt.includes(id) && typeof v==='number')
-          pb.push([feuille,L,col,id,'identifier as number','must be written as text']);
-        if((id==='172'||id==='185_4') && !cleOk(v))
-          pb.push([feuille,L,col,id,'check digit',String(v)]);
-        if(T.dates.includes(id) && !/^\d{2}\/\d{2}\/\d{4}$/.test(String(v)))
-          pb.push([feuille,L,col,id,'date format',String(v)]);
-        if(regles && regles[feuille] && regles[feuille][col] && !regles[feuille][col].includes(String(v)))
-          pb.push([feuille,L,col,id,'value not in list',String(v).slice(0,44)]);
-      }
-    });
-  }
-
-  /* intégrité du paquet */
-  const integrite=[];
-  if(zipNames){
-    if(!zipNames.includes('xl/sharedStrings.xml')) integrite.push('The shared-strings dictionary is missing from the package.');
-    if(zipNames.some(n=>n.startsWith('xl/comments/'))) integrite.push('Comment files have been renamed.');
-    if(zipNames.includes('xl/theme/theme1.xml') && !zipNames.includes('xl/comments1.xml'))
-      integrite.push('The package was rebuilt by a third-party library.');
-  }
-
-  box.innerHTML='';
-  box.appendChild(el('h2',null,fB.name));
-  const g2=el('div','gauge');
-  const mk=(n,t)=>{const d=el('div'); d.appendChild(el('b',null,n)); d.appendChild(el('span',null,t)); return d;};
-  g2.appendChild(mk(lignes,'products'));
-  g2.appendChild(mk(pb.length,'violations'));
-  g2.appendChild(mk(regles?'4':'3','families of checks'));
-  box.appendChild(g2);
-
-  const bloquant = pb.length || integrite.length;
-  const v=el('div','verdict '+(bloquant?'stop':'ok'));
-  v.innerHTML = bloquant
-    ? '<span class="mark">×</span><div><b>Do not submit as is</b><p>'+
-      (integrite.length?integrite.join(' '):'')+' '+(pb.length?pb.length+' value(s) to fix.':'')+'</p></div>'
-    : '<span class="mark">✓</span><div><b>Ready to submit</b><p>'+
-      (regles?'Lengths, identifiers, dates, list values and package integrity all check out.'
-            :'Lengths, identifiers, dates and package integrity check out. Add the template to check list values too.')+
-      '</p></div>';
-  box.appendChild(v);
-
-  if(!fC) box.appendChild(el('p','note','Without the template, list values go unchecked \u2014 and that is the check that catches the most errors.'));
-
-  if(pb.length){
-    const t=el('table');
-    t.innerHTML='<thead><tr><th>Sheet</th><th>Row</th><th>Col.</th><th>Field</th><th>Check</th><th>Detail</th></tr></thead>';
-    const tb=el('tbody');
-    pb.slice(0,200).forEach(x=>{ const tr=el('tr');
-      tr.innerHTML='<td>'+esc(x[0])+'</td><td class="num">'+x[1]+'</td><td class="mono">'+esc(x[2])+
-        '</td><td class="mono">'+esc(x[3])+'</td><td>'+esc(x[4])+'</td><td class="mono">'+esc(x[5])+'</td>';
-      tb.appendChild(tr); });
-    t.appendChild(tb); const sc=el('div','scroll'); sc.appendChild(t); box.appendChild(sc);
-    if(pb.length>200) box.appendChild(el('p','note','Showing the first 200 of '+pb.length+'.'));
-  }
-}
 
 /* =======================================================================
    MÉMOIRE
@@ -941,7 +500,6 @@ const REJETS=[
 /* =======================================================================
    CHAT  (capacité « sample » : Claude répond depuis la page publiée)
    ======================================================================= */
-let dernierScan = null;                 // résumé de la dernière inspection
 const FIL='pm-chat', DUREE=60*60*1000;  // le fil est conservé une heure
 
 const BRIEF = [
@@ -1145,7 +703,7 @@ function nomSortie(){
 function majSortie(ok){
   sortie = ok ? new File([py.FS.readFile('/work/output.xlsx')], nomSortie(),
     {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}) : null;
-  $('#actCheck').disabled=!sortie; $('#actSave').disabled=!sortie; $('#actStep3').disabled=!sortie;
+  $('#actCheck').disabled=!sortie; $('#actSave').disabled=!sortie;
 }
 
 /* ce que Claude peut faire dans la page */
@@ -1215,10 +773,6 @@ function brancherActions(){
     try{ await dl.save({filename:sortie.name, data:sortie}); }
     catch(e){ if(e&&e.code!=='cancelled'&&e.code!=='declined'){ out.classList.remove('hide'); out.textContent='The file was not saved ('+(e.code||'error')+').'; } }
   };
-  $('#actStep3').onclick=()=>{
-    if(!sortie) return;
-    fB=sortie; fC=fichierTpl; bandeau(); allerEtape('valid'); valider();
-  };
 }
 
 /* emplacements de fichiers de l'étape 2 */
@@ -1280,15 +834,12 @@ async function initChat(){
   if(!sample){
     chat.innerHTML='';
     chat.appendChild(el('p','note',
-      'Claude works here when the page is opened from Claude. In this copy, the buttons below run your skill\u2019s scripts.'));
-    $('#actInspect').classList.remove('hide');
+      'Claude works here when the page is opened from Claude. In this copy, use the buttons below: they run your skill\u2019s scripts.'));
     chat.style.padding='16px 18px';
     return;
   }
   const lim = await sample.limits().catch(()=>null);
   const avecOutils = !!(lim && lim.tools);
-  const montrerBoutons=()=>$('#actInspect').classList.remove('hide');
-  if(!avecOutils) montrerBoutons();
   /* au-delà du plafond d'outils de la vue, on garde les plus utiles (run_python couvre les autres) */
   const PRIORITE=['run_python','inspect_export','generate','validate','search_classification_paths','set_classification',
     'list_products','check_extraction','set_list_value','anomalies','read_reference'];
@@ -1313,7 +864,7 @@ async function initChat(){
     const fichiers='\n\n--- Files in the page ---\nExport: '+(fichierExport?fichierExport.name:'none dropped')+
       '\nExtraction (template): '+(fichierTpl?fichierTpl.name+(DEFAUT&&fichierTpl.name===DEFAUT.split('/').pop()?' (built-in default Gaia template; bound to the account it was extracted from, so for another client ask for that account\u2019s extraction before production)':''):'none dropped')+
       (desk?'\nDecisions already set: '+desk.decisions_json():'');
-    const contexte = (dernierScan ? '\n\n--- Last export inspected on this page ---\n'+dernierScan : '')+fichiers;
+    const contexte = fichiers;
     const premier = !tours.length;
     const entete = BRIEF + (avecOutils ? '\n'+OUTILS_BRIEF+'\n\n--- SKILL.md ---\n'+skillMd.slice(0,9000) : '');
     const contenu = (premier?entete+'\n\n--- Question ---\n':'')+q+contexte;
@@ -1344,7 +895,6 @@ async function initChat(){
       const msg=copie[e.code] ?? 'Something went wrong on the way to Claude. Try again.';
       if(msg) fil.appendChild(el('p','note',msg));
       fil.scrollTop=fil.scrollHeight;
-      if(e.code==='tools_unavailable') montrerBoutons();
       if(e.code==='not_granted'||e.code==='sampling_disabled'){ go.disabled=true; return; }
     }finally{
       go.disabled=false; stop.classList.add('hide'); ctl=null;
@@ -1361,53 +911,6 @@ async function initChat(){
 }
 initChat();
 
-/* ---------- branchements ---------- */
-brancher($('#dropA'),$('#fileA'),f=>{
-  const z=$('#dropA'); z.classList.add('loaded');
-  z.querySelector('b').textContent=f.name;
-  z.querySelector('span').textContent='click to inspect another export';
-  fichierExport=f; majFichiers();
-  inspecter(f);
-});
-/* un seul dépôt : le fichier rempli et le gabarit se distinguent par la présence de données */
-async function estRempli(file){
-  try{
-    const wb = await lire(file);
-    const g = grille(wb,'Produit');
-    if(!g) return null;
-    return g.slice(6).some(r => r && r[0]!=null && r[0]!=='');
-  }catch(e){ return null; }
-}
-function bandeau(){
-  const b=$('#loaded'); b.innerHTML='';
-  const ajout=(f,role)=>{ if(!f) return;
-    const sp=el('span'); sp.innerHTML='<b>'+esc(f.name)+'</b><em>'+role+'</em>'; b.appendChild(sp); };
-  ajout(fB,'file being checked'); ajout(fC,'template');
-  const z=$('#dropB');
-  if(fB||fC){
-    z.classList.add('loaded');
-    z.querySelector('b').textContent = fB ? 'Equa Excel loaded' : 'Template loaded';
-    z.querySelector('span').textContent = fC ? 'click to replace' : 'add the template extraction to check list values too';
-  }
-}
-async function recevoir(files){
-  const liste=[...files];
-  if(!liste.length) return;
-  attente($('#outB'),'Reading\u2026');
-  for(const f of liste){
-    const rempli = await estRempli(f);
-    if(rempli===null){
-      erreur($('#outB'),{message:'\u201c'+f.name+'\u201d has no \u2018Produit\u2019 sheet: it is not in extraction format.'});
-      return;
-    }
-    if(rempli) fB=f; else fC=f;
-  }
-  bandeau();
-  if(fB) valider();
-  else { const o=$('#outB'); o.innerHTML='';
-    o.appendChild(el('p','note','That file is an empty template. Drop the filled Equa Excel to run the checks.')); }
-}
-brancher($('#dropB'),$('#fileB'),null,recevoir);
 </script>
 </body>
 </html>
