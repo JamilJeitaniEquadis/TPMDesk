@@ -8,6 +8,10 @@ inspect the export, list products in a category, search the extraction's field 1
 classification or a list value, generate, validate. The Inspect / Generate / Validate buttons run the
 same functions without Claude. The generated file is saved with the `downloads` capability or handed to step 3.
 
-To publish: run `app/fetch-runtime.sh` to rebuild `app/py/`, then publish `app/tpm-desk.html` with
-`desk.py`, `py/*` and `skill/**` as supporting files and capabilities `{sample: {}, downloads: true}`.
-When the skill changes, copy its `SKILL.md`, `scripts/`, `references/` and `assets/` into `app/skill/` and republish.
+The skill, `desk.py` and the openpyxl wheels are embedded in the HTML (`#bundle` block), so the page also
+works as a local file: it then loads the Pyodide core from cdn.jsdelivr.net (internet needed) and the buttons
+run the pipeline. The Claude chat only works in the page published on claude.ai.
+
+When the skill or `desk.py` changes: copy the skill's `SKILL.md`, `scripts/`, `references/` and `assets/` into
+`app/skill/`, run `app/fetch-runtime.sh` once (rebuilds `app/py/`), then `python app/build.py`, and republish
+`app/tpm-desk.html` with the `py/*` files attached and capabilities `{sample: {}, downloads: true}`.
