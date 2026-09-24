@@ -226,3 +226,35 @@ def diagnostic():
     if ordre[:2] != ['Produit', 'Logistique']:
         L.append("- Les deux premiers onglets ne sont pas Produit puis Logistique : pipeline.py écrit dans sheet1/sheet2.")
     return '\n'.join(L)
+
+# ---------------------------------------------------------------- bac à sable
+_NS = None
+
+def run_python(code):
+    """Exécute du Python dans la page, comme l'outil d'exécution de code d'une conversation Claude.
+    L'espace de noms persiste d'un appel à l'autre ; pipeline, inspect_export, validate et desk y sont importés."""
+    global _NS
+    if _NS is None:
+        _NS = {'__name__': '__sandbox__', 'pipeline': pipeline, 'inspect_export': inspect_export,
+               'validate': validate, 'desk': sys.modules[__name__], 'EXPORT': EXPORT, 'TEMPLATE': TEMPLATE,
+               'OUT': OUT, 'REPORT': REPORT}
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            import ast
+            arbre = ast.parse(code, '<claude>')
+            fin = arbre.body.pop() if arbre.body and isinstance(arbre.body[-1], ast.Expr) else None
+            exec(compile(arbre, '<claude>', 'exec'), _NS)
+            if fin is not None:
+                v = eval(compile(ast.Expression(fin.value), '<claude>', 'eval'), _NS)
+                if v is not None: print(repr(v))
+    except SystemExit as e:
+        buf.write(f"\n(SystemExit {e.code})")
+    except Exception:
+        import traceback
+        buf.write(traceback.format_exc(limit=6))
+    out = buf.getvalue() or '(aucune sortie)'
+    return _court(out, 8000)
+
+def output_ready():
+    return os.path.exists(OUT)
