@@ -31,6 +31,11 @@ def _run(module, argv):
         code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
     except Exception as e:
         code = 1; buf.write(f"\nERREUR : {type(e).__name__}: {e}")
+        import traceback
+        pile = [f for f in traceback.extract_tb(e.__traceback__) if '/skill/' in f.filename]
+        if pile:
+            f = pile[-1]
+            buf.write(f"\n   à {os.path.basename(f.filename)}:{f.lineno}  {(f.line or '').strip()[:120]}")
     finally:
         sys.argv = old
     return code, buf.getvalue()
@@ -150,7 +155,7 @@ def generate():
     global _paths
     code, txt = _run(pipeline, ['--export', EXPORT, '--template', TEMPLATE, '--out', OUT, '--report', REPORT])
     if code or not os.path.exists(OUT):
-        return _court('ÉCHEC de la génération.\n' + txt)
+        return _court('ÉCHEC de la génération.\n' + txt + '\n\n' + diagnostic())
     return _court(txt + ("\n\nArbitrages appliqués : " + str(len(DECISIONS)) if DECISIONS else ''))
 
 def check():
@@ -178,3 +183,46 @@ def new_template():
     global _paths
     _paths = None
     reset_outputs()
+
+def diagnostic():
+    """Contrôle du gabarit sur les points où l'écriture XML de pipeline.py suppose un fichier issu de Gaia."""
+    import zipfile
+    e = _need(TEMPLATE)
+    if e: return e
+    L = ['Diagnostic de l\'extraction :']
+    try:
+        z = zipfile.ZipFile(TEMPLATE)
+    except Exception as x:
+        return f"L'extraction n'est pas un .xlsx lisible ({x})."
+    noms = set(z.namelist())
+    app = z.read('docProps/app.xml').decode('utf-8', 'replace') if 'docProps/app.xml' in noms else ''
+    m = re.search(r'<Application>([^<]*)</Application>', app)
+    L.append(f"- Application inscrite dans le fichier : {m.group(1) if m else 'aucune'} "
+             "(une extraction ouverte puis enregistrée dans Excel n'est plus déposable)")
+    if 'xl/sharedStrings.xml' not in noms:
+        L.append("- sharedStrings.xml absent : le fichier n'est pas une extraction Gaia brute.")
+    else:
+        ss = z.read('xl/sharedStrings.xml').decode('utf-8', 'replace')
+        ok = re.search(r'<sst count="(\d+)" uniqueCount="(\d+)"', ss)
+        L.append("- En-tête sharedStrings : " + ("conforme" if ok else
+                 "NON CONFORME (" + (re.findall(r'<sst[^>]*>', ss) or [''])[0][:140]
+                 + ") : attendu <sst count=\"…\" uniqueCount=\"…\" en premier, comme l'écrit Gaia."))
+    wb = z.read('xl/workbook.xml').decode('utf-8', 'replace')
+    ordre = re.findall(r'<sheet [^>]*name="([^"]+)"', wb)
+    L.append(f"- Onglets : {', '.join(ordre[:8])}")
+    for i, nom in enumerate(('Produit', 'Logistique'), 1):
+        f = f'xl/worksheets/sheet{i}.xml'
+        if f not in noms:
+            L.append(f"- {f} absent."); continue
+        xml = z.read(f).decode('utf-8', 'replace')
+        lignes = [int(x) for x in re.findall(r'<row r="(\d+)"', xml)]
+        der = max(lignes) if lignes else 0
+        a_16 = pipeline.LAST_TPL in lignes
+        L.append(f"- {f} (attendu : {nom}) : lignes jusqu'à {der}, ligne {pipeline.LAST_TPL} "
+                 + ("présente" if a_16 else f"ABSENTE -> au-delà de {pipeline.LAST_TPL - pipeline.FIRST_NEW + 1} produits, "
+                    "pipeline.py ne trouve pas de ligne modèle à dupliquer"))
+    L.append("Une extraction faite dans Gaia et déposée telle quelle passe ces contrôles. Sinon, refaire "
+             "l'extraction depuis Gaia et la déposer sans l'ouvrir dans Excel.")
+    if ordre[:2] != ['Produit', 'Logistique']:
+        L.append("- Les deux premiers onglets ne sont pas Produit puis Logistique : pipeline.py écrit dans sheet1/sheet2.")
+    return '\n'.join(L)
