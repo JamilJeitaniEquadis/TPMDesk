@@ -258,6 +258,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
 /* --- integration setup --- */
 .mailbody.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; white-space:pre; max-height:calc(100vh - 400px)}
 .seg.small button{font-size:12.5px; padding:4px 10px}
+.acts .lead{margin:0; flex:1 1 260px} .acts .lead span{flex-basis:auto}
 .picks{display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 10px}
 .picks button{font:inherit; font-size:12.5px; background:var(--paper); color:var(--ink-soft); border:1px solid var(--rule); border-radius:999px; padding:3px 10px; cursor:pointer}
 .picks button:hover{border-color:var(--accent); color:var(--ink)}
@@ -587,14 +588,17 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
             <div class="mailhead"><b>Run in SQL Server Management Studio</b>
               <span class="seg small" role="group" aria-label="Script style"><button data-sql="safe" aria-pressed="true">Safe</button><button data-sql="plain" aria-pressed="false">Plain</button></span></div>
             <pre class="mailbody code" id="iSql"></pre>
-            <div class="acts"><button class="btn" data-copy="iSql">Copy</button><span class="note" data-cout="iSql"></span></div>
+            <div class="acts"><button class="btn" data-copy="iSql">Copy</button>
+              <label class="f inline lead"><span>Your login can&rsquo;t write? Send it to</span><input type="email" id="iLead" placeholder="lead@equadis.com" autocomplete="off"></label>
+              <a class="btn ghost" id="iLeadBtn" href="https://outlook.office.com/mail/" target="_blank" rel="noopener">Send to my lead</a>
+              <span class="note" data-cout="iSql"></span></div>
           </div>
           <div class="box brief"><b>How to run it</b><ul>
             <li>Open a <b>new, empty</b> query window, so only this script runs.</li>
             <li>Run query <b>1</b> alone first. If a row already points to this folder, your lead has created the interface: don&rsquo;t insert, go to step 4.</li>
             <li><b>Safe</b>: checks, then the INSERT inside a transaction; look at the row, then run <code>COMMIT</code> (or <code>ROLLBACK</code> to undo). Don&rsquo;t leave the transaction open: it locks the table.</li>
             <li><b>Plain</b>: only the INSERT, then a SELECT. Use it if Safe is refused.</li>
-            <li><b>&ldquo;Msg 0 &hellip; Operation not allowed&rdquo;</b> comes from in front of SQL Server, not from SQL Server itself: this connection may not write. Run each statement alone (select it, F5): if the SELECTs pass and the INSERT is refused, the login or server you use is read-only. Ask your lead which connection the team uses to insert interfaces.</li>
+            <li><b>&ldquo;Msg 0 &hellip; Operation not allowed&rdquo;</b> on the INSERT while SELECTs work: your login reads but can&rsquo;t write (the <code>equa_agent</code> login is like this). Nothing in the script can get past it: use <b>Send to my lead</b>, who runs it with a login that can write.</li>
           </ul></div>
         </div>
       </div>
@@ -1162,6 +1166,11 @@ function md(t){
     [sftp()+'/', '\u2514 '+nom(), '\u2003\u2514 Received  \u2190 the batch reads this folder'].forEach(x=>t.appendChild(el('li',null,x)));
     document.querySelectorAll('#v-integ [data-sql]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.sql===style));
     $('#iSql').textContent=sql();
+    const plain=(()=>{ const k=style; style='plain'; const t=sql(); style=k; return t; })();
+    const corps='Hi,\n\nCould you run this on equadis200, please? It creates the Excel_Cloud interface for idIndustriel '+id+
+      ' (folder '+nom()+'\\Received). My login can read integration_interface but gets "Operation not allowed" on INSERT.\n\n'+plain+'\n\nThanks,';
+    $('#iLeadBtn').href='https://outlook.office.com/mail/deeplink/compose?'+new URLSearchParams(
+      {to:v('iLead'), subject:'Excel_Cloud interface '+id+' ('+nom()+'): INSERT to run', body:corps}).toString();
     $('#iDrop').textContent=ds; $('#iDbPath').textContent=d;
     $('#iRep').textContent=v('iMails')||'no one';
     const ok=valide();
