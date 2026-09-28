@@ -257,6 +257,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
 .wnav .btn:disabled,.acts .btn:disabled{opacity:.45; cursor:not-allowed}
 /* --- integration setup --- */
 .mailbody.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; white-space:pre; max-height:calc(100vh - 400px)}
+.seg.small button{font-size:12.5px; padding:4px 10px}
 .flags{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr)); gap:8px 14px}
 .flags label{display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13.5px; font-family:"IBM Plex Mono",monospace}
 .flags select,.flags input{font:inherit; font-size:13px; padding:4px 6px; border-radius:6px; border:1px solid var(--rule); background:var(--paper); color:var(--ink); width:92px}
@@ -520,7 +521,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
       <div class="ssohead">
         <div>
           <h1>Integration setup</h1>
-          <p class="note">Excel_Cloud interface: the server folder the batch watches, and its row in <code>integration_interface</code>.</p>
+          <p class="note">Excel_Cloud interface: the SFTP folder the batch watches, and its row in <code>integration_interface</code>.</p>
         </div>
         <div class="seg" role="group" aria-label="Copy settings from">
           <button data-ref="11555" aria-pressed="true">Like 11555</button>
@@ -542,7 +543,9 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
             <label class="f"><span>Description *</span><input type="text" id="iDesc" placeholder="Création / MAJ massive Excel Cloud" autocomplete="off"></label>
             <label class="f"><span>Report recipients (emailsDestinataires)</span><input type="text" id="iMails" value="internal@equadis.com" autocomplete="off"></label>
             <label class="f"><span>Internal emails (emails_internes, comma separated)</span><input type="text" id="iInt" placeholder="you@equadis.com" autocomplete="off"></label>
-            <label class="f"><span>Server root</span><input type="text" id="iRoot" value="D:\batchs\integrationNew" autocomplete="off"></label>
+            <label class="f"><span>Folder name</span><select id="iSuf"><option value="">idIndustriel only (e.g. 20090)</option><option value="-EquaExcel">idIndustriel-EquaExcel (e.g. 20090-EquaExcel)</option></select></label>
+            <label class="f"><span>Folder root on the SFTP server (WinSCP)</span><input type="text" id="iSftp" value="/shared/Batchs/integrationNew" autocomplete="off"></label>
+            <label class="f"><span>Same folder as the batch sees it (directoryInterface)</span><input type="text" id="iRoot" value="D:\batchs\integrationNew" autocomplete="off"></label>
           </fieldset>
           <fieldset class="box">
             <legend>Flags</legend>
@@ -555,27 +558,34 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
       <div class="wpane" data-q="1">
         <div class="wgrid wide">
           <div class="box">
-            <div class="mailhead"><b>Create the folder on the batch server</b><span class="pill p-ok">PowerShell</span></div>
-            <pre class="mailbody code" id="iPs"></pre>
-            <div class="acts"><button class="btn" data-copy="iPs">Copy</button><span class="note" data-cout="iPs"></span></div>
-            <p class="note">Or in cmd: <code id="iCmd"></code></p>
+            <div class="mailhead"><b>Create the folder on the SFTP server</b><span class="pill p-ok">WinSCP</span></div>
+            <ul class="checks">
+              <li><span>1</span><div>In WinSCP, open <code id="iSftpRoot"></code></div></li>
+              <li><span>2</span><div>Check that no folder <b id="iName1"></b> exists yet. Your listing already has other folders for some ids (e.g. <code>20090-XMLCIN</code>): that is another integration type, not a clash.</div></li>
+              <li><span>3</span><div><b>New &rsaquo; Directory</b>: <code id="iName2"></code>, open it, then <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
+            </ul>
+            <p class="note">Or paste in WinSCP&rsquo;s terminal (Commands &rsaquo; Open Terminal) or any SSH session:</p>
+            <pre class="mailbody code" id="iSh"></pre>
+            <div class="acts"><button class="btn" data-copy="iSh">Copy</button><span class="note" data-cout="iSh"></span></div>
           </div>
-          <div class="box brief"><b>Result</b><ul id="iTree"></ul></div>
+          <div class="box brief"><b>Result</b><ul id="iTree"></ul>
+            <p class="note">Rights: match the neighbouring folders (most show <code>rwxrwxrwx</code>). The batch account must be able to read and move files in <code>Received</code>.</p></div>
         </div>
       </div>
 
       <div class="wpane" data-q="2">
         <div class="wgrid wide">
           <div class="box">
-            <div class="mailhead"><b>Run in SQL Server Management Studio</b><span class="pill p-ok">T-SQL</span></div>
+            <div class="mailhead"><b>Run in SQL Server Management Studio</b>
+              <span class="seg small" role="group" aria-label="Script style"><button data-sql="safe" aria-pressed="true">Safe</button><button data-sql="plain" aria-pressed="false">Plain</button></span></div>
             <pre class="mailbody code" id="iSql"></pre>
             <div class="acts"><button class="btn" data-copy="iSql">Copy</button><span class="note" data-cout="iSql"></span></div>
           </div>
           <div class="box brief"><b>How to run it</b><ul>
-            <li>Run it once as is: it checks there is no Excel_Cloud interface yet for this idIndustriel, inserts the row inside a transaction and shows it.</li>
-            <li>If the row looks right, run <code>COMMIT</code>. If not, run <code>ROLLBACK</code> and nothing is saved.</li>
-            <li>Don&rsquo;t leave the window with the transaction open: it keeps the table locked for the batch.</li>
-            <li>The first query says whether <code>id</code> is generated by the database. If it is not, tell me and I&rsquo;ll switch the script to <code>MAX(id)+1</code>.</li>
+            <li>Open a <b>new, empty</b> query window, so only this script runs.</li>
+            <li><b>Safe</b>: checks, then the INSERT inside a transaction; look at the row, then run <code>COMMIT</code> (or <code>ROLLBACK</code> to undo). Don&rsquo;t leave the transaction open: it locks the table.</li>
+            <li><b>Plain</b>: only the INSERT, then a SELECT. Use it if Safe is refused.</li>
+            <li><b>&ldquo;Msg 0 &hellip; Operation not allowed&rdquo;</b> comes from in front of SQL Server, not from SQL Server itself: this connection may not write. Run each statement alone (select it, F5): if the SELECTs pass and the INSERT is refused, the login or server you use is read-only. Ask your lead which connection the team uses to insert interfaces.</li>
           </ul></div>
         </div>
       </div>
@@ -586,11 +596,10 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
             <div class="mailhead"><b>Drop the Equa Excel</b></div>
             <ul class="checks">
               <li><span>1</span><div>Generate the file in <a href="#" data-goto="pipeline">Generate with Claude</a> and download it.</div></li>
-              <li><span>2</span><div>Copy it into <code id="iDrop"></code></div></li>
+              <li><span>2</span><div>In WinSCP, open <code id="iDrop"></code> and upload the file (drag it from the left panel).</div></li>
               <li><span>3</span><div>The batch picks it up; the integration report goes to <b id="iRep"></b>.</div></li>
             </ul>
-            <pre class="mailbody code" id="iCopy"></pre>
-            <div class="acts"><button class="btn" data-copy="iCopy">Copy</button><span class="note" data-cout="iCopy"></span></div>
+            <p class="note">In the database, the same folder is <code id="iDbPath"></code>.</p>
           </div>
           <div class="box brief"><b>Order matters</b><ul>
             <li>Folder, then SQL row, then the file. Dropping the file is what starts an integration, so do it last and on purpose.</li>
@@ -1065,7 +1074,7 @@ function md(t){
   const BITS = ['isActive','forceIntegration','skipValidation','modifyLastChange','new_batch','is_interne'];
   const NULLS = ['xslPath','id_integration_interface_holding','sleep_time','skipIntegration'];
   const v = id => ($('#'+id).value||'').trim();
-  let ref='11555', etape=0;
+  let ref='11555', etape=0, style='safe';
 
   const box=$('#iFlags');
   BITS.forEach(k=>{ const l=el('label'); l.appendChild(el('span',null,k));
@@ -1082,8 +1091,11 @@ function md(t){
 
   const idOk = () => /^\d{3,9}$/.test(v('iId'));
   const valide = () => idOk() && !!v('iDesc');
+  const nom = () => (v('iId')||'<idIndustriel>')+$('#iSuf').value;
   const racine = () => v('iRoot').replace(/[\\\/]+$/,'') || 'D:\\batchs\\integrationNew';
-  const dossier = () => racine()+'\\'+(v('iId')||'<idIndustriel>')+'\\Received';
+  const sftp = () => (v('iSftp').replace(/\/+$/,'') || '/shared/Batchs/integrationNew');
+  const dossier = () => racine()+'\\'+nom()+'\\Received';
+  const dossierSftp = () => sftp()+'/'+nom()+'/Received';
   const q = s => "N'"+String(s).replace(/'/g,"''")+"'";
   const lit = (k,val) => { if(val==='' || val==null) return 'NULL';
     if(k==='xslPath') return q(val); return /^-?\d+$/.test(val) ? val : 'NULL'; };
@@ -1098,6 +1110,10 @@ function md(t){
       f('isActive'), f('forceIntegration'), f('skipValidation'), f('modifyLastChange'), f('new_batch'),
       lit('x',f('id_integration_interface_holding')), lit('x',f('sleep_time')), f('is_interne'),
       v('iInt')?q(v('iInt').replace(/\s*[,;]\s*/g,',')):'NULL', lit('x',f('skipIntegration'))];
+    const ins=['INSERT INTO integration_interface','  ('+cols.join(', ')+')','VALUES','  ('+vals.join(', ')+');'];
+    const voir="SELECT * FROM integration_interface WHERE idIndustriel = "+id+" AND integrationType = 'Excel_Cloud';";
+    if(style==='plain') return ['-- Excel_Cloud interface for idIndustriel '+id+' (plain: no transaction, no checks)','']
+      .concat(ins,['',voir]).join('\n');
     return [
 '-- Excel_Cloud interface for idIndustriel '+id+(v('iDesc')?' ('+v('iDesc')+')':''),
 '-- Settings copied from reference row '+ref+'.',
@@ -1124,18 +1140,16 @@ function md(t){
   }
   function rendre(){
     const d=dossier(), id=v('iId')||'<idIndustriel>';
-    document.querySelectorAll('#v-integ .seg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.ref===ref));
-    $('#iPs').textContent =
-"$dir = '"+d.replace(/'/g,"''")+"'\n"+
-"New-Item -ItemType Directory -Path $dir -Force | Out-Null\n"+
-"Get-Item $dir | Select-Object FullName, CreationTime";
-    $('#iCmd').textContent='mkdir "'+d+'"';
+    document.querySelectorAll('#v-integ [data-ref]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.ref===ref));
+    const ds=dossierSftp(), sq=x=>"'"+x.replace(/'/g,"'\\''")+"'";
+    $('#iSh').textContent='mkdir -p '+sq(ds)+'\nls -ld '+sq(sftp()+'/'+nom())+' '+sq(ds);
+    $('#iSftpRoot').textContent=sftp()+'/'; $('#iName1').textContent=nom(); $('#iName2').textContent=nom();
     const t=$('#iTree'); t.innerHTML='';
-    [racine(), '\u2514 '+id, '\u2003\u2514 Received  \u2190 the batch reads this folder'].forEach(x=>t.appendChild(el('li',null,x)));
+    [sftp()+'/', '\u2514 '+nom(), '\u2003\u2514 Received  \u2190 the batch reads this folder'].forEach(x=>t.appendChild(el('li',null,x)));
+    document.querySelectorAll('#v-integ [data-sql]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.sql===style));
     $('#iSql').textContent=sql();
-    $('#iDrop').textContent=d;
+    $('#iDrop').textContent=ds; $('#iDbPath').textContent=d;
     $('#iRep').textContent=v('iMails')||'no one';
-    $('#iCopy').textContent="Copy-Item \"$env:USERPROFILE\\Downloads\\*_Equa.xlsx\" '"+d.replace(/'/g,"''")+"'";
     const ok=valide();
     document.querySelectorAll('#inWiz button').forEach(b=>{ const i=+b.dataset.s;
       b.setAttribute('aria-current', i===etape?'step':'false'); b.disabled=i>0&&!ok; b.dataset.ok=i<etape?'1':'0'; });
@@ -1146,7 +1160,8 @@ function md(t){
   const aller=i=>{ if(i>0&&!valide()) return; etape=Math.max(0,Math.min(3,i)); rendre(); window.scrollTo(0,0); };
   document.querySelectorAll('#inWiz button').forEach(b=>b.onclick=()=>aller(+b.dataset.s));
   $('#iBack').onclick=()=>aller(etape-1); $('#iNext').onclick=()=>aller(etape+1);
-  document.querySelectorAll('#v-integ .seg button').forEach(b=>b.onclick=()=>{ ref=b.dataset.ref; appliquerRef(); rendre(); });
+  document.querySelectorAll('#v-integ [data-ref]').forEach(b=>b.onclick=()=>{ ref=b.dataset.ref; appliquerRef(); rendre(); });
+  document.querySelectorAll('#v-integ [data-sql]').forEach(b=>b.onclick=()=>{ style=b.dataset.sql; rendre(); });
   document.querySelectorAll('#v-integ input, #v-integ select').forEach(x=>x.addEventListener('input',rendre));
   document.querySelectorAll('#v-integ [data-copy]').forEach(b=>b.onclick=async()=>{
     const out=document.querySelector('[data-cout="'+b.dataset.copy+'"]');
