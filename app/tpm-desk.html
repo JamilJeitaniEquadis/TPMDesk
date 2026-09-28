@@ -258,6 +258,11 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
 /* --- integration setup --- */
 .mailbody.code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; white-space:pre; max-height:calc(100vh - 400px)}
 .seg.small button{font-size:12.5px; padding:4px 10px}
+.picks{display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 10px}
+.picks button{font:inherit; font-size:12.5px; background:var(--paper); color:var(--ink-soft); border:1px solid var(--rule); border-radius:999px; padding:3px 10px; cursor:pointer}
+.picks button:hover{border-color:var(--accent); color:var(--ink)}
+.chk{display:flex; gap:8px; align-items:center; font-size:13.5px; margin:0 0 10px; cursor:pointer}
+.chk input{accent-color:var(--ok); width:16px; height:16px}
 .flags{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr)); gap:8px 14px}
 .flags label{display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13.5px; font-family:"IBM Plex Mono",monospace}
 .flags select,.flags input{font:inherit; font-size:13px; padding:4px 6px; border-radius:6px; border:1px solid var(--rule); background:var(--paper); color:var(--ink); width:92px}
@@ -543,7 +548,9 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
             <label class="f"><span>Description *</span><input type="text" id="iDesc" placeholder="Création / MAJ massive Excel Cloud" autocomplete="off"></label>
             <label class="f"><span>Report recipients (emailsDestinataires)</span><input type="text" id="iMails" value="internal@equadis.com" autocomplete="off"></label>
             <label class="f"><span>Internal emails (emails_internes, comma separated)</span><input type="text" id="iInt" placeholder="you@equadis.com" autocomplete="off"></label>
-            <label class="f"><span>Folder name</span><select id="iSuf"><option value="">idIndustriel only (e.g. 20090)</option><option value="-EquaExcel">idIndustriel-EquaExcel (e.g. 20090-EquaExcel)</option></select></label>
+            <label class="f"><span>Folder name on the server</span><input type="text" id="iFolder" placeholder="20090" autocomplete="off"></label>
+            <div class="picks" id="iPicks"><button type="button" data-suf="">id</button><button type="button" data-suf="-XMLCIN">id-XMLCIN</button><button type="button" data-suf="-EquaExcel">id-EquaExcel</button></div>
+            <label class="chk"><input type="checkbox" id="iExists"> The folder already exists (created by your lead)</label>
             <label class="f"><span>Folder root on the SFTP server (WinSCP)</span><input type="text" id="iSftp" value="/shared/Batchs/integrationNew" autocomplete="off"></label>
             <label class="f"><span>Same folder as the batch sees it (directoryInterface)</span><input type="text" id="iRoot" value="D:\batchs\integrationNew" autocomplete="off"></label>
           </fieldset>
@@ -558,11 +565,12 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
       <div class="wpane" data-q="1">
         <div class="wgrid wide">
           <div class="box">
-            <div class="mailhead"><b>Create the folder on the SFTP server</b><span class="pill p-ok">WinSCP</span></div>
+            <div class="mailhead"><b id="iFoldT">Create the folder on the SFTP server</b><span class="pill p-ok">WinSCP</span></div>
             <ul class="checks">
               <li><span>1</span><div>In WinSCP, open <code id="iSftpRoot"></code></div></li>
-              <li><span>2</span><div>Check that no folder <b id="iName1"></b> exists yet. Your listing already has other folders for some ids (e.g. <code>20090-XMLCIN</code>): that is another integration type, not a clash.</div></li>
-              <li><span>3</span><div><b>New &rsaquo; Directory</b>: <code id="iName2"></code>, open it, then <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
+              <li data-new><span>2</span><div>Check that no folder <b id="iName1"></b> exists yet.</div></li>
+              <li data-new><span>3</span><div><b>New &rsaquo; Directory</b>: <code id="iName2"></code>, open it, then <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
+              <li data-old hidden><span>2</span><div>Open <b id="iName3"></b> and check it contains <code>Received</code>. If it doesn&rsquo;t, create it: <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
             </ul>
             <p class="note">Or paste in WinSCP&rsquo;s terminal (Commands &rsaquo; Open Terminal) or any SSH session:</p>
             <pre class="mailbody code" id="iSh"></pre>
@@ -583,6 +591,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
           </div>
           <div class="box brief"><b>How to run it</b><ul>
             <li>Open a <b>new, empty</b> query window, so only this script runs.</li>
+            <li>Run query <b>1</b> alone first. If a row already points to this folder, your lead has created the interface: don&rsquo;t insert, go to step 4.</li>
             <li><b>Safe</b>: checks, then the INSERT inside a transaction; look at the row, then run <code>COMMIT</code> (or <code>ROLLBACK</code> to undo). Don&rsquo;t leave the transaction open: it locks the table.</li>
             <li><b>Plain</b>: only the INSERT, then a SELECT. Use it if Safe is refused.</li>
             <li><b>&ldquo;Msg 0 &hellip; Operation not allowed&rdquo;</b> comes from in front of SQL Server, not from SQL Server itself: this connection may not write. Run each statement alone (select it, F5): if the SELECTs pass and the INSERT is refused, the login or server you use is read-only. Ask your lead which connection the team uses to insert interfaces.</li>
@@ -1091,7 +1100,7 @@ function md(t){
 
   const idOk = () => /^\d{3,9}$/.test(v('iId'));
   const valide = () => idOk() && !!v('iDesc');
-  const nom = () => (v('iId')||'<idIndustriel>')+$('#iSuf').value;
+  const nom = () => v('iFolder') || v('iId') || '<idIndustriel>';
   const racine = () => v('iRoot').replace(/[\\\/]+$/,'') || 'D:\\batchs\\integrationNew';
   const sftp = () => (v('iSftp').replace(/\/+$/,'') || '/shared/Batchs/integrationNew');
   const dossier = () => racine()+'\\'+nom()+'\\Received';
@@ -1121,8 +1130,9 @@ function md(t){
 '-- 0. Is id generated by the database? 1 = yes (the INSERT below leaves it out).',
 "SELECT COLUMNPROPERTY(OBJECT_ID('integration_interface'), 'id', 'IsIdentity') AS id_is_identity;",
 '',
-'-- 1. Nothing must come back here.',
-"SELECT * FROM integration_interface WHERE idIndustriel = "+id+" AND integrationType = 'Excel_Cloud';",
+'-- 1. Every interface already declared for this idIndustriel, whatever its type.',
+'--    If a row already has directoryInterface = '+dossier().replace(/\n/g,' ')+' : STOP, do not insert.',
+"SELECT * FROM integration_interface WHERE idIndustriel = "+id+";",
 '',
 '-- 2. Insert, inside a transaction.',
 'BEGIN TRANSACTION;',
@@ -1142,8 +1152,12 @@ function md(t){
     const d=dossier(), id=v('iId')||'<idIndustriel>';
     document.querySelectorAll('#v-integ [data-ref]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.ref===ref));
     const ds=dossierSftp(), sq=x=>"'"+x.replace(/'/g,"'\\''")+"'";
-    $('#iSh').textContent='mkdir -p '+sq(ds)+'\nls -ld '+sq(sftp()+'/'+nom())+' '+sq(ds);
-    $('#iSftpRoot').textContent=sftp()+'/'; $('#iName1').textContent=nom(); $('#iName2').textContent=nom();
+    const existe=$('#iExists').checked;
+    $('#iSh').textContent=(existe?'':'mkdir -p '+sq(ds)+'\n')+'ls -ld '+sq(sftp()+'/'+nom())+' '+sq(ds);
+    $('#iFoldT').textContent = existe ? 'Check the folder on the SFTP server' : 'Create the folder on the SFTP server';
+    document.querySelectorAll('#v-integ [data-new]').forEach(x=>x.hidden=existe);
+    document.querySelectorAll('#v-integ [data-old]').forEach(x=>x.hidden=!existe);
+    $('#iSftpRoot').textContent=sftp()+'/'; ['iName1','iName2','iName3'].forEach(k=>$('#'+k).textContent=nom());
     const t=$('#iTree'); t.innerHTML='';
     [sftp()+'/', '\u2514 '+nom(), '\u2003\u2514 Received  \u2190 the batch reads this folder'].forEach(x=>t.appendChild(el('li',null,x)));
     document.querySelectorAll('#v-integ [data-sql]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.sql===style));
@@ -1162,6 +1176,9 @@ function md(t){
   $('#iBack').onclick=()=>aller(etape-1); $('#iNext').onclick=()=>aller(etape+1);
   document.querySelectorAll('#v-integ [data-ref]').forEach(b=>b.onclick=()=>{ ref=b.dataset.ref; appliquerRef(); rendre(); });
   document.querySelectorAll('#v-integ [data-sql]').forEach(b=>b.onclick=()=>{ style=b.dataset.sql; rendre(); });
+  document.querySelectorAll('#iPicks [data-suf]').forEach(b=>b.onclick=()=>{ $('#iFolder').value=(v('iId')||'')+b.dataset.suf; rendre(); });
+  $('#iExists').addEventListener('change',rendre);
+  $('#iId').addEventListener('input',()=>{ $('#iFolder').placeholder=v('iId')||'20090'; });
   document.querySelectorAll('#v-integ input, #v-integ select').forEach(x=>x.addEventListener('input',rendre));
   document.querySelectorAll('#v-integ [data-copy]').forEach(b=>b.onclick=async()=>{
     const out=document.querySelector('[data-cout="'+b.dataset.copy+'"]');
