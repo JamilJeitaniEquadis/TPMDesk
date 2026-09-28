@@ -77,7 +77,7 @@ body{
 [aria-expanded="true"] .chev{transform:rotate(90deg)}
 .fold[hidden]{display:none}
 /* les enfants sont visiblement en retrait sous le parent */
-#fold-mod,#fold-integ{margin:0 0 4px 6px; padding-left:8px; border-left:1px solid rgba(88,234,157,.30)}
+#fold-mod{margin:0 0 4px 6px; padding-left:8px; border-left:1px solid rgba(88,234,157,.30)}
 #fold-pipe,#fold-ref{padding-left:8px; border-left:1px solid rgba(255,255,255,.14); margin-left:10px}
 #fold-mod > .grp-head:first-child{padding-top:6px}
 .mod-head[aria-expanded="false"]{margin-bottom:2px; border-left-color:rgba(88,234,157,.35)}
@@ -214,6 +214,8 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
 .chips button:hover{color:var(--ink); border-color:var(--accent)}
 /* --- tiroir --- */
 /* --- SSO --- */
+.rail .mod-head.solo{margin-top:6px}
+.rail .mod-head.solo[aria-current="true"]{background:rgba(88,234,157,.16); color:#EAFFF4; box-shadow:inset 2px 0 0 var(--accent)}
 .phase{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 22px}
 .phase span{font-size:13px; padding:5px 12px; border-radius:999px; border:1px solid var(--rule); color:var(--ink-soft); background:var(--card)}
 .phase span.now{background:var(--primary); color:#fff; border-color:var(--primary); font-weight:600}
@@ -265,9 +267,9 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
   .grp-head{display:none}
   .mod-head{justify-content:flex-start; gap:8px; margin:0 0 8px; padding:8px 11px; font-size:13px}
   .fold{display:contents!important}
-  #fold-mod,#fold-integ,#fold-pipe,#fold-ref{padding:0; border:0; margin:0}
+  #fold-mod,#fold-pipe,#fold-ref{padding:0; border:0; margin:0}
   .rail nav{display:block}
-  #fold-mod,#fold-integ{display:flex!important; gap:4px; overflow-x:auto; scrollbar-width:none}
+  #fold-mod{display:flex!important; gap:4px; overflow-x:auto; scrollbar-width:none}
   #fold-mod::-webkit-scrollbar{display:none}
   .rail button{white-space:nowrap; padding:7px 12px; font-size:13.5px; border:1px solid rgba(255,255,255,.14)}
   .railfoot{display:none}
@@ -312,18 +314,18 @@ input[type=text],textarea{width:100%; font:inherit; font-size:14px; padding:8px 
     <div class="brand"><b>Technical Project<br>Manager Desk</b><span>Jamil Jeitani</span></div>
     <nav>
       <button class="mod-head" data-fold="mod" aria-expanded="true" title="Collapse or expand this module">
-        Excel &rarr; Equa Excel (1 shot)<span class="chev" aria-hidden="true">&rarr;</span>
-      </button>
-      <div class="fold" id="fold-mod">
-        <button data-v="pipeline" aria-current="true">Generate with Claude</button>
-        <button data-v="memoire">Reference</button>
-      </div>
-      <button class="mod-head" data-fold="integ" aria-expanded="true" title="Collapse or expand this module">
         Intégration produit<span class="chev" aria-hidden="true">&rarr;</span>
       </button>
-      <div class="fold" id="fold-integ">
-        <button data-v="sso">SSO</button>
+      <div class="fold" id="fold-mod">
+        <button class="grp-head" data-fold="pipe" aria-expanded="true" title="Collapse or expand">
+          <span class="chev" aria-hidden="true">&rarr;</span>Excel &rarr; Equa Excel (1 shot)
+        </button>
+        <div class="fold" id="fold-pipe">
+          <button data-v="pipeline" aria-current="true">Generate with Claude</button>
+          <button data-v="memoire">Reference</button>
+        </div>
       </div>
+      <button class="mod-head solo" data-v="sso">SSO</button>
     </nav>
     <div class="railfoot">
       Files stay in your browser. Claude reads only what its tools pull from them.<br>
