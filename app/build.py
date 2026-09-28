@@ -29,5 +29,11 @@ bloc = '<script type="application/json" id="bundle">' + json.dumps(bundle, separ
 html, n = re.subn(r'<script type="application/json" id="bundle">.*?</script>', lambda m: bloc, html, count=1, flags=re.S)
 if n != 1:
     raise SystemExit('Bloc #bundle introuvable dans tpm-desk.html')
+sso = {n: base64.b64encode(open(os.path.join(ICI, 'sso', n), 'rb').read()).decode('ascii')
+       for n in ('SSO_2025_EN.pptx', 'SSO_Prerequis_Template.xlsx')}
+bloc2 = '<script type="application/json" id="sso-files">' + json.dumps(sso, separators=(',', ':')) + '</script>'
+html, n = re.subn(r'<script type="application/json" id="sso-files">.*?</script>', lambda m: bloc2, html, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('Bloc #sso-files introuvable dans tpm-desk.html')
 open(PAGE, 'w', encoding='utf-8').write(html)
 print(f"{len(bundle)} fichiers intégrés, page : {os.path.getsize(PAGE) // 1024} Ko")
