@@ -233,6 +233,15 @@ a.btn{display:inline-block; text-decoration:none}
 .wiz button:disabled{opacity:.45; cursor:not-allowed}
 .wiz button:focus-visible,.seg button:focus-visible,a.btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .wpane{display:none} .wpane.on{display:block}
+.recap{display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:-6px 0 14px; padding:9px 14px; border-radius:10px;
+  background:var(--card); border:1px dashed var(--rule); font-size:13px}
+.recap > b{font-size:12px; letter-spacing:.3px; text-transform:uppercase; color:var(--ink-soft)}
+.recap span{display:inline-flex; gap:5px; min-width:0} .recap span em{font-style:normal; color:var(--ink-soft)}
+.recap span strong{font-weight:600; overflow-wrap:anywhere}
+.recap button{margin-left:auto; font:inherit; font-size:12.5px; font-weight:600; background:none; border:1px solid var(--rule); color:var(--ink); border-radius:6px; padding:3px 10px; cursor:pointer}
+.recap button:hover{border-color:var(--accent)}
+.wnav .note.go{color:var(--ok)}
+.f.miss input{border-color:var(--warn)}
 .wgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:14px}
 .wgrid.wide{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr)}
 @media(max-width:860px){ .wgrid.wide{grid-template-columns:1fr} }
@@ -449,6 +458,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         <li><button data-s="1"><b>2</b>Kick-off meeting</button></li>
         <li><button data-s="2"><b>3</b>Send the SSO Excel</button></li>
       </ol>
+      <div class="recap" id="ssoRecap" hidden></div>
 
       <div class="wpane on" data-p="0">
         <div class="wgrid">
@@ -540,6 +550,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         <li><button data-s="2"><b>3</b>SQL row</button></li>
         <li><button data-s="3"><b>4</b>Drop the Excel</button></li>
       </ol>
+      <div class="recap" id="inRecap" hidden></div>
 
       <div class="wpane on" data-q="0">
         <div class="wgrid">
@@ -551,7 +562,6 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
             <label class="f"><span>Internal emails (emails_internes, comma separated)</span><input type="text" id="iInt" placeholder="you@equadis.com" autocomplete="off"></label>
             <label class="f"><span>Folder name on the server</span><input type="text" id="iFolder" placeholder="20090" autocomplete="off"></label>
             <div class="picks" id="iPicks"><button type="button" data-suf="">id</button><button type="button" data-suf="-XMLCIN">id-XMLCIN</button><button type="button" data-suf="-EquaExcel">id-EquaExcel</button></div>
-            <label class="chk"><input type="checkbox" id="iExists"> The folder already exists (created by your lead)</label>
             <label class="f"><span>Folder root on the SFTP server (WinSCP)</span><input type="text" id="iSftp" value="/shared/Batchs/integrationNew" autocomplete="off"></label>
             <label class="f"><span>Same folder as the batch sees it (directoryInterface)</span><input type="text" id="iRoot" value="D:\batchs\integrationNew" autocomplete="off"></label>
           </fieldset>
@@ -566,14 +576,13 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
       <div class="wpane" data-q="1">
         <div class="wgrid wide">
           <div class="box">
-            <div class="mailhead"><b id="iFoldT">Create the folder on the SFTP server</b><span class="pill p-ok">WinSCP</span></div>
+            <div class="mailhead"><b>Check or create the folder on the SFTP server</b><span class="pill p-ok">WinSCP</span></div>
             <ul class="checks">
               <li><span>1</span><div>In WinSCP, open <code id="iSftpRoot"></code></div></li>
-              <li data-new><span>2</span><div>Check that no folder <b id="iName1"></b> exists yet.</div></li>
-              <li data-new><span>3</span><div><b>New &rsaquo; Directory</b>: <code id="iName2"></code>, open it, then <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
-              <li data-old hidden><span>2</span><div>Open <b id="iName3"></b> and check it contains <code>Received</code>. If it doesn&rsquo;t, create it: <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
+              <li><span>2</span><div>Look for <b id="iName1"></b>. If it isn&rsquo;t there: <b>New &rsaquo; Directory</b>: <code id="iName2"></code></div></li>
+              <li><span>3</span><div>Open it and look for <code>Received</code>. If it isn&rsquo;t there: <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
             </ul>
-            <p class="note">Or paste in WinSCP&rsquo;s terminal (Commands &rsaquo; Open Terminal) or any SSH session:</p>
+            <p class="note">Or paste in WinSCP&rsquo;s terminal (Commands &rsaquo; Open Terminal) or any SSH session. <code>mkdir -p</code> leaves an existing folder as it is.</p>
             <pre class="mailbody code" id="iSh"></pre>
             <div class="acts"><button class="btn" data-copy="iSh">Copy</button><span class="note" data-cout="iSh"></span></div>
           </div>
@@ -1008,7 +1017,7 @@ function md(t){
   function rendre(){
     if(!idManuel) $('#cId').value = v('cName').replace(/[^A-Za-z0-9]/g,'');
     const t=textes(lang), ok=valide();
-    document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.lang===lang));
+    document.querySelectorAll('#v-sso .seg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.lang===lang));
     ['lang1','lang2'].forEach(k=>$('#'+k).textContent=lang);
     [[1,t.inv],[2,t.xls]].forEach(([n,m])=>{
       $('#m'+n+'to').textContent = v('cMail')+(v('cCc')?'  ·  Cc '+v('cCc'):'') || '—';
@@ -1021,18 +1030,30 @@ function md(t){
     $('#briefT').textContent=t.briefT; $('#nextT').textContent=t.nextT;
     const liste=(k,xs)=>{ const u=$(k); u.innerHTML=''; xs.forEach(x=>u.appendChild(el('li',null,x))); };
     liste('#brief',t.brief); liste('#next',t.next);
-    document.querySelectorAll('.wiz button').forEach(b=>{
+    document.querySelectorAll('#ssoWiz button').forEach(b=>{
       const i=+b.dataset.s; b.setAttribute('aria-current', i===etape?'step':'false');
-      b.disabled = i>0 && !ok; b.dataset.ok = (i<etape)?'1':'0'; });
-    document.querySelectorAll('.wpane').forEach(p=>p.classList.toggle('on', +p.dataset.p===etape));
+      b.disabled = i>0 && !ok; b.dataset.ok = (i===0 && ok)?'1':'0';
+      b.title = i>0 && !ok ? 'Fill in step 1 first' : ''; });
+    document.querySelectorAll('#v-sso .wpane').forEach(p=>p.classList.toggle('on', +p.dataset.p===etape));
+    /* rappel de l'étape 1 sur les étapes suivantes : tout en découle */
+    const rc=$('#ssoRecap'); rc.hidden = etape===0;
+    if(etape>0){ rc.innerHTML='';
+      rc.appendChild(el('b',null,'Step 1'));
+      [['Client',nomClient()],['URLs',ident()],['To',[v('cRep'),v('cMail')].filter(Boolean).join(' \u00b7 ')],['Cc',v('cCc')],['Language',lang==='FR'?'Français':'English'],['Signed',v('tName')]]
+        .filter(x=>x[1]).forEach(([k,x])=>{ const sp=el('span'); sp.appendChild(el('em',null,k)); sp.appendChild(el('strong',null,x)); rc.appendChild(sp); });
+      const e=el('button',null,'Edit'); e.onclick=()=>aller(0); rc.appendChild(e); }
+    ['cName','cMail'].forEach(k=>$('#'+k).closest('.f').classList.toggle('miss', etape===0 && !(k==='cName'?v('cName'):mailOk(v('cMail'))) && !!(v('cName')||v('cMail'))));
     $('#wBack').disabled = etape===0;
     $('#wNext').disabled = etape===2 || !ok;
-    $('#wWhy').textContent = ok ? '' : 'Enter the client name and the representative’s email to continue';
+    const w=$('#wWhy'); w.classList.toggle('go', ok && etape===0);
+    w.textContent = !ok ? (v('cName') && v('cMail') && !mailOk(v('cMail')) ? 'The representative\u2019s email doesn\u2019t look right'
+                          : 'Fill in the client name and the representative\u2019s email: steps 2 and 3 are built from them')
+                        : etape===0 ? 'Ready: open step 2 or step 3, in any order' : '';
   }
   const aller = i => { if(i>0 && !valide()) return; etape=Math.max(0,Math.min(2,i)); rendre(); window.scrollTo(0,0); };
-  document.querySelectorAll('.wiz button').forEach(b=>b.onclick=()=>aller(+b.dataset.s));
+  document.querySelectorAll('#ssoWiz button').forEach(b=>b.onclick=()=>aller(+b.dataset.s));
   $('#wBack').onclick=()=>aller(etape-1); $('#wNext').onclick=()=>aller(etape+1);
-  document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ lang=b.dataset.lang; rendre(); });
+  document.querySelectorAll('#v-sso .seg button').forEach(b=>b.onclick=()=>{ lang=b.dataset.lang; rendre(); });
   $('#cId').addEventListener('input',()=>{ idManuel = !!v('cId'); });
   document.querySelectorAll('#v-sso input, #v-sso select').forEach(x=>x.addEventListener('input',rendre));
 
@@ -1156,12 +1177,8 @@ function md(t){
     const d=dossier(), id=v('iId')||'<idIndustriel>';
     document.querySelectorAll('#v-integ [data-ref]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.ref===ref));
     const ds=dossierSftp(), sq=x=>"'"+x.replace(/'/g,"'\\''")+"'";
-    const existe=$('#iExists').checked;
-    $('#iSh').textContent=(existe?'':'mkdir -p '+sq(ds)+'\n')+'ls -ld '+sq(sftp()+'/'+nom())+' '+sq(ds);
-    $('#iFoldT').textContent = existe ? 'Check the folder on the SFTP server' : 'Create the folder on the SFTP server';
-    document.querySelectorAll('#v-integ [data-new]').forEach(x=>x.hidden=existe);
-    document.querySelectorAll('#v-integ [data-old]').forEach(x=>x.hidden=!existe);
-    $('#iSftpRoot').textContent=sftp()+'/'; ['iName1','iName2','iName3'].forEach(k=>$('#'+k).textContent=nom());
+    $('#iSh').textContent='mkdir -p '+sq(ds)+'\nls -ld '+sq(sftp()+'/'+nom())+' '+sq(ds);
+    $('#iSftpRoot').textContent=sftp()+'/'; ['iName1','iName2'].forEach(k=>$('#'+k).textContent=nom());
     const t=$('#iTree'); t.innerHTML='';
     [sftp()+'/', '\u2514 '+nom(), '\u2003\u2514 Received  \u2190 the batch reads this folder'].forEach(x=>t.appendChild(el('li',null,x)));
     document.querySelectorAll('#v-integ [data-sql]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.sql===style));
@@ -1175,10 +1192,21 @@ function md(t){
     $('#iRep').textContent=v('iMails')||'no one';
     const ok=valide();
     document.querySelectorAll('#inWiz button').forEach(b=>{ const i=+b.dataset.s;
-      b.setAttribute('aria-current', i===etape?'step':'false'); b.disabled=i>0&&!ok; b.dataset.ok=i<etape?'1':'0'; });
+      b.setAttribute('aria-current', i===etape?'step':'false'); b.disabled=i>0&&!ok; b.dataset.ok=(i===0&&ok)?'1':'0';
+      b.title = i>0 && !ok ? 'Fill in step 1 first' : ''; });
     document.querySelectorAll('#v-integ .wpane').forEach(p=>p.classList.toggle('on', +p.dataset.q===etape));
+    /* rappel de l'étape 1 : les étapes 2 à 4 en sont toutes dérivées */
+    const rc=$('#inRecap'); rc.hidden = etape===0;
+    if(etape>0){ rc.innerHTML=''; rc.appendChild(el('b',null,'Step 1'));
+      [['idIndustriel',id],['Folder',nom()],['Type','Excel_Cloud'],['Reports',v('iMails')],['Settings like',ref]]
+        .filter(x=>x[1]).forEach(([k,x])=>{ const sp=el('span'); sp.appendChild(el('em',null,k)); sp.appendChild(el('strong',null,x)); rc.appendChild(sp); });
+      const e=el('button',null,'Edit'); e.onclick=()=>aller(0); rc.appendChild(e); }
+    $('#iId').closest('.f').classList.toggle('miss', etape===0 && !!v('iId') && !idOk());
     $('#iBack').disabled=etape===0; $('#iNext').disabled=etape===3||!ok;
-    $('#iWhy').textContent = ok ? '' : (v('iId')&&!idOk() ? 'idIndustriel is a number, like 20090' : 'Enter the idIndustriel and a description to continue');
+    const w=$('#iWhy'); w.classList.toggle('go', ok && etape===0);
+    w.textContent = !ok ? (v('iId')&&!idOk() ? 'idIndustriel is a number, like 20090'
+                          : 'Fill in the idIndustriel and a description: steps 2, 3 and 4 are built from them')
+                        : etape===0 ? 'Ready: open step 2, 3 or 4, in any order' : '';
   }
   const aller=i=>{ if(i>0&&!valide()) return; etape=Math.max(0,Math.min(3,i)); rendre(); window.scrollTo(0,0); };
   document.querySelectorAll('#inWiz button').forEach(b=>b.onclick=()=>aller(+b.dataset.s));
@@ -1186,7 +1214,6 @@ function md(t){
   document.querySelectorAll('#v-integ [data-ref]').forEach(b=>b.onclick=()=>{ ref=b.dataset.ref; appliquerRef(); rendre(); });
   document.querySelectorAll('#v-integ [data-sql]').forEach(b=>b.onclick=()=>{ style=b.dataset.sql; rendre(); });
   document.querySelectorAll('#iPicks [data-suf]').forEach(b=>b.onclick=()=>{ $('#iFolder').value=(v('iId')||'')+b.dataset.suf; rendre(); });
-  $('#iExists').addEventListener('change',rendre);
   $('#iId').addEventListener('input',()=>{ $('#iFolder').placeholder=v('iId')||'20090'; });
   document.querySelectorAll('#v-integ input, #v-integ select').forEach(x=>x.addEventListener('input',rendre));
   document.querySelectorAll('#v-integ [data-copy]').forEach(b=>b.onclick=async()=>{
