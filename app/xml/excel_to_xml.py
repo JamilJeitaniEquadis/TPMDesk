@@ -2,7 +2,13 @@
 """
 Extraction Gaia (.xlsx) -> XML au format DataModelEquadis (products / product / field / logs / log / packs / pack).
 
-    python excel_to_xml.py --excel extraction.xlsx --out produits.xml [--report rapport.txt]
+    python excel_to_xml.py --excel extraction.xlsx --outdir dossier/ [--gln "CFEB SISLEY=3xxxxxxxxxxxx" ...]
+
+Un fichier par fournisseur : chaque <product gln="..."> d'un fichier porte le même GLN (condition de
+dépôt côté centrale). GLN du produit, dans l'ordre : GLN du contact (185_4), GLN du propriétaire de la
+marque (172), GLN donné en option pour le nom du contact (185_2), GLN du même contact vu sur un autre
+produit, puis GLN des autres produits de la même marque (signalé comme déduit). Un GLN doit passer la
+clé GS1. Sans GLN, le produit n'est écrit dans aucun fichier et le rapport le liste.
 
 Règles :
 - Produit : une ligne de l'onglet Produit (à partir de la ligne 7) = un <product>. Ligne 1 = id du champ,
@@ -91,41 +97,106 @@ def bloc(rec, groupes, ind, restes, exclus=()):
         out += champ(fid, vals, ind, restes); faits.add(fid)
     return out
 
+def cle_gln(g):
+    d = str(g)
+    if not d.isdigit() or len(d) != 13: return False
+    n = [int(x) for x in d]
+    return (10 - sum(x * (1 if i % 2 == 0 else 3) for i, x in enumerate(n[:-1])) % 10) % 10 == n[-1]
+
+norm = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().upper()
+premier = lambda rec, fid: (rec.get(fid) or [(None, None)])[0][1]
+
+def attribuer_gln(prods, donnes):
+    """Renvoie {gtin: (gln, fournisseur, comment)} pour les produits dont le GLN est établi."""
+    par_contact, par_marque = {}, defaultdict(set)
+    for p in prods:
+        g = next((x for x in (premier(p, '185_4'), premier(p, '172')) if x and cle_gln(x)), None)
+        if g:
+            if premier(p, '185_2'): par_contact.setdefault(norm(premier(p, '185_2')), g)
+            if premier(p, '109'): par_marque[norm(premier(p, '109'))].add(g)
+    out = {}
+    for p in prods:
+        gt, nom, marque = premier(p, '2'), norm(premier(p, '185_2')), norm(premier(p, '109'))
+        for comment, g in (('GLN du contact (185_4)', premier(p, '185_4')),
+                           ('GLN du propriétaire de la marque (172)', premier(p, '172')),
+                           ('GLN donné pour ' + nom, donnes.get(nom)),
+                           ('même contact sur un autre produit', par_contact.get(nom))):
+            if g and cle_gln(g):
+                out[gt] = (g, nom or marque, comment); break
+        else:
+            gs = par_marque.get(marque, set())
+            if not nom and len(gs) == 1:
+                out[gt] = (next(iter(gs)), marque, 'DÉDUIT de la marque ' + marque + ' (aucun contact sur le produit)')
+    return out
+
+def ecrire_produit(L, p, gln, logs, restes):
+    L.append(f'\t<product gln="{gln}">')
+    L += bloc(p, GROUPES_PRODUIT, '\t\t', restes)
+    g = p['2'][0][1]
+    if logs.get(g):
+        L.append('\t\t<logs>')
+        for lg in logs[g]:
+            L.append('\t\t\t<log>')
+            ul = OrderedDict((k, v) for k, v in lg.items() if k.startswith('UL'))
+            pk = OrderedDict((k, v) for k, v in lg.items() if k.startswith('PK'))
+            L += bloc(ul, GROUPES_LOG, '\t\t\t\t', restes)
+            if pk:
+                L += ['\t\t\t\t<packs>', '\t\t\t\t\t<pack>']
+                L += bloc(pk, {}, '\t\t\t\t\t\t', restes)
+                L += ['\t\t\t\t\t</pack>', '\t\t\t\t</packs>']
+            L.append('\t\t\t</log>')
+        L.append('\t\t</logs>')
+    L.append('\t</product>')
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--excel', required=True); ap.add_argument('--out', required=True); ap.add_argument('--report')
+    ap.add_argument('--excel', required=True)
+    ap.add_argument('--outdir', required=True, help="dossier des fichiers XML, un par GLN")
+    ap.add_argument('--gln', action='append', default=[], help='"NOM DU CONTACT=GLN" pour un fournisseur sans GLN dans l\'Excel')
     a = ap.parse_args()
+    import os
+    os.makedirs(a.outdir, exist_ok=True)
+    donnes = {}
+    for x in a.gln:
+        nom, _, g = x.rpartition('=')
+        if not cle_gln(g.strip()): raise SystemExit(f"GLN refusé (clé GS1 invalide) : {x}")
+        donnes[norm(nom)] = g.strip()
     wb = load_workbook(a.excel, read_only=False, data_only=True)
     prods = lire(wb['Produit'])
     logs = defaultdict(list)
     if 'Logistique' in wb.sheetnames:
         for rec in lire(wb['Logistique']):
             logs[rec['2'][0][1]].append(rec)
-    restes = set()
-    L = ['<?xml version="1.0" encoding="UTF-8"?>', '<products>']
+    gln = attribuer_gln(prods, donnes)
+    groupes = defaultdict(list)
     for p in prods:
-        L.append('\t<product>')
-        L += bloc(p, GROUPES_PRODUIT, '\t\t', restes)
-        g = p['2'][0][1]
-        if logs.get(g):
-            L.append('\t\t<logs>')
-            for lg in logs[g]:
-                L.append('\t\t\t<log>')
-                ul = OrderedDict((k, v) for k, v in lg.items() if k.startswith('UL'))
-                pk = OrderedDict((k, v) for k, v in lg.items() if k.startswith('PK'))
-                L += bloc(ul, GROUPES_LOG, '\t\t\t\t', restes)
-                if pk:
-                    L += ['\t\t\t\t<packs>', '\t\t\t\t\t<pack>']
-                    L += bloc(pk, {}, '\t\t\t\t\t\t', restes)
-                    L += ['\t\t\t\t\t</pack>', '\t\t\t\t</packs>']
-                L.append('\t\t\t</log>')
-            L.append('\t\t</logs>')
-        L.append('\t</product>')
-    L.append('</products>')
-    open(a.out, 'w', encoding='utf-8').write('\n'.join(L) + '\n')
-    print(f"{len(prods)} produits, {sum(len(v) for v in logs.values())} unités logistiques -> {a.out}")
-    if a.report:
-        open(a.report, 'w', encoding='utf-8').write(rapport(wb))
+        if premier(p, '2') in gln: groupes[gln[premier(p, '2')][0]].append(p)
+    base = re.sub(r'^[0-9a-f]{8}-', '', re.sub(r'\.xls[xm]$', '', os.path.basename(a.excel), flags=re.I))
+    restes, fichiers = set(), []
+    for g, ps in sorted(groupes.items(), key=lambda x: -len(x[1])):
+        nom = gln[premier(ps[0], '2')][1]
+        f = os.path.join(a.outdir, f"{base}_{g}_{re.sub(r'[^A-Za-z0-9]+', '_', nom).strip('_')}.xml")
+        L = ['<?xml version="1.0" encoding="UTF-8"?>', '<products>']
+        for p in ps: ecrire_produit(L, p, g, logs, restes)
+        L.append('</products>')
+        open(f, 'w', encoding='utf-8').write('\n'.join(L) + '\n')
+        fichiers.append((f, g, nom, ps))
+    sans = [p for p in prods if premier(p, '2') not in gln]
+    R = [f"{len(prods)} produits : {sum(len(x[3]) for x in fichiers)} répartis en {len(fichiers)} fichier(s), {len(sans)} sans GLN.", '']
+    for f, g, nom, ps in fichiers:
+        R.append(f"{os.path.basename(f)}  ({len(ps)} produits, GLN {g}, {nom})")
+        for p in ps:
+            comment = gln[premier(p, '2')][2]
+            if comment.startswith('DÉDUIT'): R.append(f"    {premier(p, '2')}  {comment}")
+    if sans:
+        R += ['', 'SANS GLN, écrits dans aucun fichier (relancer avec --gln "NOM=GLN") :']
+        par = defaultdict(list)
+        for p in sans: par[norm(premier(p, '185_2')) or '(aucun contact) ' + norm(premier(p, '109'))].append(premier(p, '2'))
+        for nom, gs in sorted(par.items(), key=lambda x: -len(x[1])):
+            R.append(f"    {nom}: {len(gs)} produits  ({', '.join(gs[:4])}{' ...' if len(gs) > 4 else ''})")
+    R += ['', rapport(wb)]
+    open(os.path.join(a.outdir, base + '_rapport.txt'), 'w', encoding='utf-8').write('\n'.join(R) + '\n')
+    print('\n'.join(R[:len(R)-1]))
 
 def rapport(wb):
     """Champs dont toutes les valeurs viennent des listes de l'extraction (Lists_Prd / Lists_Log) :
