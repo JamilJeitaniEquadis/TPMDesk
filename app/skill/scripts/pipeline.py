@@ -206,11 +206,15 @@ def construire(export_path, log):
     for r in P.rows:
         g = gtin_txt(P.v(r, 'gtin'))
         d, dl = {}, {}
+        def zero(fid, val):
+            if fid in NO_ZERO and num(val) == 0:
+                log.append({'gtin': g, 'champ': f'Valeur 0 refusée ({fid})', 'constat': "0 dans l'export : champ laissé vide (Gaia refuse 0)."})
+                return True
         def S(fid, val, occ=0):
-            if val not in (None, ''): d[(fid, occ)] = val
+            if val not in (None, '') and not zero(fid, val): d[(fid, occ)] = val
         
         def SL(fid, val, occ=0):
-            if val not in (None, ''): dl[(fid, occ)] = val
+            if val not in (None, '') and not zero(fid, val): dl[(fid, occ)] = val
 
         S('2', g); ref_int = P.v(r, 'supplierCode')
         if ref_int and len(str(ref_int)) > 24:
@@ -372,7 +376,7 @@ def construire(export_path, log):
             lr = bygtin[lug]
             typ = code(L.v(lr, 'typePackaging')); pal = typ == 'PALLET'
             def SB(fid, val):
-                if val not in (None, ''): dl[(fid, b)] = val
+                if val not in (None, '') and not zero(fid, val): dl[(fid, b)] = val
             SB('PK3', V_LOG_TYPE.get(typ)); SB('PK1', gtin_txt(L.v(lr, 'gtin'))); SB('PK4', 'Finale')
             SB('PK7', trunc(L.v(lr, 'namePublicLong'), 35)); SB('PK8', trunc(L.v(lr, 'namePublicLong'), 200))
             SB('PK9', gtin_txt(L.v(lr, 'children.gtin')))
@@ -413,6 +417,9 @@ def construire(export_path, log):
     return prods, logis
 
 # ============================ écriture du classeur ============================
+# Champs où Gaia refuse la valeur 0 (disallowZero = 1 dans la table equafield) : erreur DAZ_<id> à l'import.
+NO_ZERO = {'11', '117', '121', '126', '132', '1482', '149', '1499', '154', '156', '158', '1593', '1595', '1599', '1723', '190', '2152', '312', '3402', '3403', '3469', '54', '55', '74', '75', '76', '95', 'PK10', 'PK28', 'PK50', 'PK51', 'PK53', 'PK56'}
+
 TXT = {'2','PK1','PK9','169','2580','172','185_4'}
 
 # Longueurs maximales du dictionnaire Gaia : certaines ne sont pas déclarées dans le
