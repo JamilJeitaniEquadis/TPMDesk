@@ -166,6 +166,8 @@ def ecrire_produit(L, p, gln, logs, restes):
         for lg in logs[g]:
             L.append('\t\t\t<log>')
             ul = OrderedDict((k, v) for k, v in lg.items() if k.startswith('UL'))
+            if p.get('8_1'):                                   # marché cible logistique = marché cible produit
+                ul['UL3_1'] = p['8_1']
             pk = OrderedDict((k, v) for k, v in lg.items() if k.startswith('PK'))
             L += bloc(ul, '\t\t\t\t', restes)
             if pk:
@@ -181,6 +183,7 @@ def main():
     ap.add_argument('--excel', required=True)
     ap.add_argument('--outdir', required=True, help="dossier des fichiers XML, un par GLN")
     ap.add_argument('--export', help="export SupplierXM d'origine : on y lit le GLN du fournisseur (prioritaire)")
+    ap.add_argument('--gtin', action='append', default=[], help="n'écrire que ces produits (test)")
     ap.add_argument('--gln', action='append', default=[], help='"NOM DU CONTACT=GLN" pour un fournisseur sans GLN dans l\'Excel')
     a = ap.parse_args()
     os.makedirs(a.outdir, exist_ok=True)
@@ -191,6 +194,7 @@ def main():
         donnes[norm(nom)] = g.strip()
     wb = load_workbook(a.excel, read_only=False, data_only=True)
     prods = lire(wb['Produit'])
+    if a.gtin: prods = [p for p in prods if premier(p, '2') in a.gtin]
     logs = defaultdict(list)
     if 'Logistique' in wb.sheetnames:
         for rec in lire(wb['Logistique']):
