@@ -13,26 +13,31 @@ clé GS1. Sans GLN, le produit n'est écrit dans aucun fichier et le rapport le 
 Règles :
 - Produit : une ligne de l'onglet Produit (à partir de la ligne 7) = un <product>. Ligne 1 = id du champ,
   ligne 6 = langue (Français -> LANG_FRA, Anglais -> LANG_ANG). Plusieurs colonnes d'un même id = plusieurs <value>.
-- Groupes imbriqués repris du modèle : 185 (contacts), 2236 (2238), 400_0 (400), UL3P (UL3_1, UL3_2).
+- Imbrication : chaque champ va dans ses tables parentes (DynamicTable / DynamicPanel) d'après id_parent
+  du dictionnaire equafield.json (table equafield), par ex. 8 > 8_1, 3567 > 126, 185 > 2108 > 185_6.
 - Champ 11 : le code de la brique GPC (fin du chemin « … | 10000356 - libellé »), comme dans le modèle.
 - Logistique : les lignes de l'onglet Logistique rattachées au GTIN produit (champ 2) donnent <logs><log>,
   avec les champs UL puis <packs><pack> pour les champs PK.
 - Valeurs : telles que dans l'Excel, sauf les codes que le modèle montre lui-même (PK3, PK32, PK40…PK49, UL2).
   Le rapport liste les champs à liste de valeurs restés en libellé.
 """
-import argparse, re
+import argparse, json, os, re
 from collections import OrderedDict, defaultdict
 from xml.sax.saxutils import escape
 from openpyxl import load_workbook
 
 LANG = {'Français': 'LANG_FRA', 'Anglais': 'LANG_ANG'}
 IDENT = {'2', 'PK1', 'PK9', '3', '172', '185_4', '1225', '2320'}      # textes à conserver tels quels (zéros, codes)
-GROUPES_PRODUIT = {                                                   # parent -> enfants (repris du modèle)
-    '185': ['185_1', '185_2', '185_3', '185_4', '2227', '2225', '2223', '2224', '185_5'],
-    '2236': ['2238', '2241'],
-    '400_0': ['400'],
-}
-GROUPES_LOG = {'UL3P': ['UL3_1', 'UL3_2', 'UL3_3']}
+TABLES = ('DynamicTable', 'DynamicPanel')
+DICO = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'equafield.json'), encoding='utf-8'))
+                                                                      # id -> [type, id_parent] (table equafield)
+def parents(fid):
+    """Tables dynamiques qui contiennent le champ, de la plus proche à la plus haute (sections et modules exclus)."""
+    out, p = [], (DICO.get(fid) or [None, None])[1]
+    while p in DICO and DICO[p][0] in TABLES and p not in out:
+        out.append(p); p = DICO[p][1]
+    return out
+
 CODES_MODELE = {                                                      # valeurs dont le modèle donne le code
     'PK3': {'Carton': 'COND_CARTON', 'Palette': 'COND_PALETTE'},
     'PK32': {'Carton': 'PACK_TYPE_CT'},
@@ -79,23 +84,23 @@ def valeurs(fid, vals, ind, restes):
 def champ(fid, vals, ind, restes):
     return [f'{ind}<field id="{fid}">'] + valeurs(fid, vals, ind, restes) + [f'{ind}</field>']
 
-def bloc(rec, groupes, ind, restes, exclus=()):
-    out, faits = [], set(exclus)
-    enfant_de = {e: p for p, es in groupes.items() for e in es}
+def bloc(rec, ind, restes):
+    """Champs de rec, chacun emboîté dans ses tables parentes (id_parent du dictionnaire) :
+    <field id="table"><value> … enfants … </value></field>, dans l'ordre des colonnes de l'Excel."""
+    arbre = OrderedDict()
     for fid, vals in rec.items():
-        if fid in faits: continue
-        p = enfant_de.get(fid)
-        if p:
-            if p in faits: continue
-            faits.add(p)
-            enfants = [e for e in groupes[p] if e in rec]
-            out += [f'{ind}<field id="{p}">', f'{ind}\t<value>']
-            for e in enfants:
-                out += champ(e, rec[e], ind + '\t\t', restes); faits.add(e)
-            out += [f'{ind}\t</value>', f'{ind}</field>']
-            continue
-        out += champ(fid, vals, ind, restes); faits.add(fid)
-    return out
+        n = arbre
+        for p in reversed(parents(fid)): n = n.setdefault(p, OrderedDict())
+        n[fid] = vals
+    def ecrire(n, ind):
+        out = []
+        for fid, v in n.items():
+            if isinstance(v, OrderedDict):
+                out += [f'{ind}<field id="{fid}">', f'{ind}\t<value>'] + ecrire(v, ind + '\t\t') + [f'{ind}\t</value>', f'{ind}</field>']
+            else:
+                out += champ(fid, v, ind, restes)
+        return out
+    return ecrire(arbre, ind)
 
 def cle_gln(g):
     d = str(g)
@@ -131,7 +136,7 @@ def attribuer_gln(prods, donnes):
 
 def ecrire_produit(L, p, gln, logs, restes):
     L.append(f'\t<product gln="{gln}">')
-    L += bloc(p, GROUPES_PRODUIT, '\t\t', restes)
+    L += bloc(p, '\t\t', restes)
     g = p['2'][0][1]
     if logs.get(g):
         L.append('\t\t<logs>')
@@ -139,10 +144,10 @@ def ecrire_produit(L, p, gln, logs, restes):
             L.append('\t\t\t<log>')
             ul = OrderedDict((k, v) for k, v in lg.items() if k.startswith('UL'))
             pk = OrderedDict((k, v) for k, v in lg.items() if k.startswith('PK'))
-            L += bloc(ul, GROUPES_LOG, '\t\t\t\t', restes)
+            L += bloc(ul, '\t\t\t\t', restes)
             if pk:
                 L += ['\t\t\t\t<packs>', '\t\t\t\t\t<pack>']
-                L += bloc(pk, {}, '\t\t\t\t\t\t', restes)
+                L += bloc(pk, '\t\t\t\t\t\t', restes)
                 L += ['\t\t\t\t\t</pack>', '\t\t\t\t</packs>']
             L.append('\t\t\t</log>')
         L.append('\t\t</logs>')
@@ -154,7 +159,6 @@ def main():
     ap.add_argument('--outdir', required=True, help="dossier des fichiers XML, un par GLN")
     ap.add_argument('--gln', action='append', default=[], help='"NOM DU CONTACT=GLN" pour un fournisseur sans GLN dans l\'Excel')
     a = ap.parse_args()
-    import os
     os.makedirs(a.outdir, exist_ok=True)
     donnes = {}
     for x in a.gln:
