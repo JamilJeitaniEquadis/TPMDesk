@@ -402,7 +402,12 @@ def construire(export_path, log):
             SB('PK46', 'Non' if pal else 'Oui'); SB('PK49', 'Non' if pal else 'Oui')
             SB('PK47', V_UOM_FACT.get(code(L.v(lr, 'orderingUnitOfMeasure'))))
             SB('PK50', L.v(lr, 'orderQuantityMinimum')); SB('PK53', L.v(lr, 'orderQuantityMultiple'))
-            SB('PK71', d_fr(L.v(lr, 'startAvailabilityDateTime'))); SB('PK72', d_fr(L.v(lr, 'firstShipDateTime')))
+            pk71 = d_fr(L.v(lr, 'startAvailabilityDateTime'))
+            if not pk71 and dispo:                  # obligatoire dans Gaia (REQ_PK71) : date de début de vente au consommateur
+                pk71 = dispo
+                log.append({'gtin': g, 'champ': 'Logistique / PK71', 'constat':
+                            f"Début de disponibilité à la commande absent pour {gtin_txt(L.v(lr, 'gtin'))} : repris de la date de début de vente au consommateur ({dispo})."})
+            SB('PK71', pk71); SB('PK72', d_fr(L.v(lr, 'firstShipDateTime')))
         logis.append(dl)
     wb.close()
     return prods, logis
