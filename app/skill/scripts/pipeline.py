@@ -328,6 +328,14 @@ def construire(export_path, log):
             S('604', 'Exoneré 0%')
         else:
             taux = num(P.v(r, 'dutyFeeTaxInformationList.dutyFeeTaxList.dutyFeeTaxRateNumber'))
+            vente = P.v(r, 'retailVATTypeOrganization1337')   # « TVA à la vente* » du distributeur, ex. « TVA taux normal 20% ∣ REGULAR »
+            if taux is None and vente not in (None, ''):
+                m = re.search(r'(\d+(?:[.,]\d+)?)\s*%', str(lab(vente) or vente))
+                taux = num(m.group(1).replace(',', '.')) if m else {'REGULAR': 20, 'EXEMPT': 0}.get(code(vente))
+                if taux is not None:
+                    if P.v(r, 'dutyFeeTaxInformationList.dutyFeeTaxCountryCode') in (None, ''): S('605', 'France')
+                    log.append({'gtin': g, 'champ': 'Taux de TVA (604)',
+                                'constat': f"Taux GS1 absent : repris de « TVA à la vente » du distributeur ({taux} %)."})
             S('604', {20:'TVA 20 %', 5.5:'TAUX REDUIT 5.5 %', 10:'TAUX INTERMEDIAIRE 10%',
                       2.1:'TAUX PRESSE 2.10%', 0:'Exoneré 0%'}.get(taux,
                       'TVA taux supérieur' if taux is not None else None))
