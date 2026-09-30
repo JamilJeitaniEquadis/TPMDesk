@@ -2,10 +2,11 @@
 """
 Extraction Gaia (.xlsx) -> XML au format DataModelEquadis (products / product / field / logs / log / packs / pack).
 
-    python excel_to_xml.py --excel extraction.xlsx --outdir dossier/ [--gln "CFEB SISLEY=3xxxxxxxxxxxx" ...]
+    python excel_to_xml.py --excel extraction.xlsx --outdir dossier/ [--export export_supplierxm.xlsx] [--gln "CFEB SISLEY=3xxxxxxxxxxxx" ...]
 
 Un fichier par fournisseur : chaque <product gln="..."> d'un fichier porte le même GLN (condition de
-dépôt côté centrale). GLN du produit, dans l'ordre : GLN du contact (185_4), GLN du propriétaire de la
+dépôt côté centrale). GLN du produit, dans l'ordre : GLN du fournisseur lu dans l'export SupplierXM
+(--export, partyGLN au rôle SUPPLIER ; Gaia n'a pas ce champ), GLN du contact (185_4), GLN du propriétaire de la
 marque (172), GLN donné en option pour le nom du contact (185_2), GLN du même contact vu sur un autre
 produit, puis GLN des autres produits de la même marque (signalé comme déduit). Un GLN doit passer la
 clé GS1. Sans GLN, le produit n'est écrit dans aucun fichier et le rapport le liste.
@@ -111,7 +112,26 @@ def cle_gln(g):
 norm = lambda s: re.sub(r'\s+', ' ', str(s or '')).strip().upper()
 premier = lambda rec, fid: (rec.get(fid) or [(None, None)])[0][1]
 
-def attribuer_gln(prods, donnes):
+def gln_export(chemin):
+    """GLN du fournisseur par GTIN, lu dans l'export SupplierXM (partyGLN au rôle SUPPLIER, onglet Product)."""
+    ws = load_workbook(chemin, read_only=True, data_only=True)['Product']
+    lignes = ws.iter_rows(values_only=True)
+    entetes = [next(lignes) for _ in range(7)]            # Thème, Nom, Description, Chemin, Type, Unité, Exemple
+    chemins = [str(x or '') for x in entetes[3]]
+    col = lambda p: [i for i, x in enumerate(chemins) if x == p]
+    gt = col('gtin')[0]
+    trio = list(zip(col('partyInformationList.partyRoleCode'), col('partyInformationList.partyGLN'),
+                    col('partyInformationList.partyNameText')))
+    out = {}
+    for r in lignes:
+        if not r[gt]: continue
+        for ro, gl, no in trio:
+            g = str(r[gl] or '').strip()
+            if str(r[ro] or '').endswith('SUPPLIER') and g:
+                out[str(r[gt]).strip().zfill(14)] = (g.zfill(13), norm(r[no])); break
+    return out
+
+def attribuer_gln(prods, donnes, fournisseurs={}):
     """Renvoie {gtin: (gln, fournisseur, comment)} pour les produits dont le GLN est établi."""
     par_contact, par_marque = {}, defaultdict(set)
     for p in prods:
@@ -122,6 +142,9 @@ def attribuer_gln(prods, donnes):
     out = {}
     for p in prods:
         gt, nom, marque = premier(p, '2'), norm(premier(p, '185_2')), norm(premier(p, '109'))
+        g, f = fournisseurs.get(str(gt).zfill(14), (None, None))
+        if g and cle_gln(g):
+            out[gt] = (g, f or nom or marque, 'GLN du fournisseur (export, partyGLN SUPPLIER)'); continue
         for comment, g in (('GLN du contact (185_4)', premier(p, '185_4')),
                            ('GLN du propriétaire de la marque (172)', premier(p, '172')),
                            ('GLN donné pour ' + nom, donnes.get(nom)),
@@ -157,6 +180,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--excel', required=True)
     ap.add_argument('--outdir', required=True, help="dossier des fichiers XML, un par GLN")
+    ap.add_argument('--export', help="export SupplierXM d'origine : on y lit le GLN du fournisseur (prioritaire)")
     ap.add_argument('--gln', action='append', default=[], help='"NOM DU CONTACT=GLN" pour un fournisseur sans GLN dans l\'Excel')
     a = ap.parse_args()
     os.makedirs(a.outdir, exist_ok=True)
@@ -171,7 +195,7 @@ def main():
     if 'Logistique' in wb.sheetnames:
         for rec in lire(wb['Logistique']):
             logs[rec['2'][0][1]].append(rec)
-    gln = attribuer_gln(prods, donnes)
+    gln = attribuer_gln(prods, donnes, gln_export(a.export) if a.export else {})
     groupes = defaultdict(list)
     for p in prods:
         if premier(p, '2') in gln: groupes[gln[premier(p, '2')][0]].append(p)
