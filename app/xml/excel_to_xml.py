@@ -31,7 +31,8 @@ LANG = {'Français': 'LANG_FRA', 'Anglais': 'LANG_ANG'}
 IDENT = {'2', 'PK1', 'PK9', '3', '172', '185_4', '1225', '2320'}      # textes à conserver tels quels (zéros, codes)
 TABLES = ('DynamicTable', 'DynamicPanel')
 DICO = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'equafield.json'), encoding='utf-8'))
-                                                                      # id -> [type, id_parent] (table equafield)
+                                                                      # id -> [type, id_parent(, 1 si disallowZero)] (table equafield)
+NO_ZERO = {k for k, v in DICO.items() if len(v) > 2}                  # Gaia refuse 0 (erreur DAZ_<id>)
 def parents(fid):
     """Tables dynamiques qui contiennent le champ, de la plus proche à la plus haute (sections et modules exclus)."""
     out, p = [], (DICO.get(fid) or [None, None])[1]
@@ -45,6 +46,8 @@ CODES_MODELE = {                                                      # valeurs 
     'UL2': {'Oui': 'true', 'Non': 'false'},
     **{k: {'Oui': '1', 'Non': '0'} for k in ('PK40', 'PK41', 'PK42', 'PK43', 'PK44', 'PK46', 'PK49')},
 }
+
+CORRECTIONS = defaultdict(int)
 
 def texte(fid, v):
     if v is None: return None
@@ -64,6 +67,8 @@ def lire(ws):
         for c, fid, lang in cols:
             s = texte(fid, ws.cell(row=r, column=c).value)
             if s is None: continue
+            if fid in NO_ZERO and re.fullmatch(r'0+([.,]0*)?', s):
+                CORRECTIONS[f'{fid} : 0 refusé par Gaia, laissé vide'] += 1; continue
             rec.setdefault(fid, []).append((lang, s))
         if rec.get('2'): lignes.append(rec)
     return lignes
@@ -137,11 +142,12 @@ def attribuer_gln(prods, donnes, fournisseurs={}):
     for p in prods:
         g = next((x for x in (premier(p, '185_4'), premier(p, '172')) if x and cle_gln(x)), None)
         if g:
-            if premier(p, '185_2'): par_contact.setdefault(norm(premier(p, '185_2')), g)
+            if re.search(r'[A-Z]', norm(premier(p, '185_2'))): par_contact.setdefault(norm(premier(p, '185_2')), g)
             if premier(p, '109'): par_marque[norm(premier(p, '109'))].add(g)
     out = {}
     for p in prods:
         gt, nom, marque = premier(p, '2'), norm(premier(p, '185_2')), norm(premier(p, '109'))
+        if not re.search(r'[A-Z]', nom): nom = ''               # contact sans nom (« . ») : pas une clé fiable
         g, f = fournisseurs.get(str(gt).zfill(14), (None, None))
         if g and cle_gln(g):
             out[gt] = (g, f or nom or marque, 'GLN du fournisseur (export, partyGLN SUPPLIER)'); continue
@@ -150,7 +156,7 @@ def attribuer_gln(prods, donnes, fournisseurs={}):
                            ('GLN donné pour ' + nom, donnes.get(nom)),
                            ('même contact sur un autre produit', par_contact.get(nom))):
             if g and cle_gln(g):
-                out[gt] = (g, nom or marque, comment); break
+                out[gt] = (g, nom or norm(premier(p, '174')) or marque, comment); break
         else:
             gs = par_marque.get(marque, set())
             if not nom and len(gs) == 1:
@@ -168,6 +174,9 @@ def ecrire_produit(L, p, gln, logs, restes):
             ul = OrderedDict((k, v) for k, v in lg.items() if k.startswith('UL'))
             if p.get('8_1'):                                   # marché cible logistique = marché cible produit
                 ul['UL3_1'] = p['8_1']
+            if not lg.get('PK71') and p.get('2230') and any(k.startswith('PK') for k in lg):
+                lg = OrderedDict(lg); lg['PK71'] = p['2230']   # obligatoire (REQ_PK71) : date de début de vente consommateur
+                CORRECTIONS['PK71 vide : repris de la date de début de vente consommateur (2230)'] += 1
             pk = OrderedDict((k, v) for k, v in lg.items() if k.startswith('PK'))
             L += bloc(ul, '\t\t\t\t', restes)
             if pk:
@@ -226,6 +235,11 @@ def main():
         for p in sans: par[norm(premier(p, '185_2')) or '(aucun contact) ' + norm(premier(p, '109'))].append(premier(p, '2'))
         for nom, gs in sorted(par.items(), key=lambda x: -len(x[1])):
             R.append(f"    {nom}: {len(gs)} produits  ({', '.join(gs[:4])}{' ...' if len(gs) > 4 else ''})")
+    if CORRECTIONS:
+        R += ['', 'Corrections appliquées :'] + [f'    {k} : {n}' for k, n in CORRECTIONS.items()]
+    sans_tva = [premier(p, '2') for p in prods if not p.get('604')]
+    if sans_tva:
+        R += ['', f'TVA (604) vide sur {len(sans_tva)} produits : Gaia renverra REQ_603 ({", ".join(sans_tva[:4])}{" ..." if len(sans_tva) > 4 else ""})']
     R += ['', rapport(wb)]
     open(os.path.join(a.outdir, base + '_rapport.txt'), 'w', encoding='utf-8').write('\n'.join(R) + '\n')
     print('\n'.join(R[:len(R)-1]))
