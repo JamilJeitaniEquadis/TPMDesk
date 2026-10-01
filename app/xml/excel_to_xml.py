@@ -161,6 +161,26 @@ def attribuer_gln(prods, donnes, fournisseurs={}):
             gs = par_marque.get(marque, set())
             if not nom and len(gs) == 1:
                 out[gt] = (next(iter(gs)), marque, 'DÉDUIT de la marque ' + marque + ' (aucun contact sur le produit)')
+    # Une marque = un fournisseur. Un GLN minoritaire au sein d'une marque vient d'un contact (185_4) ou du
+    # propriétaire (172), pas du fournisseur : on reprend le GLN majoritaire de la marque. Le GLN lu dans
+    # l'export ou donné en option (--gln) n'est jamais remplacé.
+    fixe = lambda c: c.startswith(('GLN du fournisseur', 'GLN donné'))
+    par_m = defaultdict(lambda: defaultdict(int))
+    for p in prods:
+        if premier(p, '2') in out: par_m[norm(premier(p, '109'))][out[premier(p, '2')][0]] += 1
+    nom_de = defaultdict(lambda: defaultdict(int))
+    for g, f, c in out.values(): nom_de[g][f] += 1
+    for p in prods:
+        gt, marque = premier(p, '2'), norm(premier(p, '109'))
+        cpt = par_m.get(marque)
+        if not cpt: continue
+        maj, n = max(cpt.items(), key=lambda x: x[1])
+        if n * 2 <= sum(cpt.values()): continue                     # pas de majorité nette : on ne touche à rien
+        f = max(nom_de[maj].items(), key=lambda x: x[1])[0]
+        if gt not in out:
+            out[gt] = (maj, f, f'DÉDUIT : GLN majoritaire de la marque {marque} ({n} produits)')
+        elif out[gt][0] != maj and not fixe(out[gt][2]):
+            out[gt] = (maj, f, f"GLN {out[gt][0]} ({out[gt][2]}) ignoré : GLN majoritaire de la marque {marque} ({n} produits)")
     return out
 
 def ecrire_produit(L, p, gln, logs, restes):
@@ -228,7 +248,8 @@ def main():
         R.append(f"{os.path.basename(f)}  ({len(ps)} produits, GLN {g}, {nom})")
         for p in ps:
             comment = gln[premier(p, '2')][2]
-            if comment.startswith('DÉDUIT'): R.append(f"    {premier(p, '2')}  {comment}")
+            if comment.startswith(('DÉDUIT', 'GLN ')) and 'ignoré' in comment or comment.startswith('DÉDUIT'):
+                R.append(f"    {premier(p, '2')}  {comment}")
     if sans:
         R += ['', 'SANS GLN, écrits dans aucun fichier (relancer avec --gln "NOM=GLN") :']
         par = defaultdict(list)
