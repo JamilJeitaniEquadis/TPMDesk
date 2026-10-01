@@ -194,14 +194,23 @@ def kg(p, v, u):
     try: return float(premier(p, v)) * KG[premier(p, u)]
     except (TypeError, ValueError, KeyError): return None
 
-def regles_produit(p):
+def regles_produit(p, lg0=None):
     """Règles Gaia vérifiées à l'import, appliquées avant l'écriture du produit."""
     p = OrderedDict(p)
     if p.get('1225') and not p.get('2107') and p.get('8_1'):         # RG_626 : marché cible de la nomenclature douanière
         p['2107'] = p['8_1']; CORRECTIONS['2107 vide : marché cible de la nomenclature repris de 8_1'] += 1
-    exp, cde = date(premier(p, '2231')), date(premier(p, '2234'))
-    if exp and (cde is None or cde > exp):                            # RG_421 : début commande <= début expédition
-        p['2234'] = p['2231']; CORRECTIONS['2234 vide ou après 2231 : début de commande = début d\'expédition (2231)'] += 1
+    # Dates de l'UVC (RG_421, RG_180, RG_183) : commande (2234) <= expédition (2231), et chacune <= celle du
+    # premier niveau logistique (PK71, PK72). Une date vide est prise par Gaia comme la date d'import : on les
+    # écrit donc toujours, à la plus tôt des dates connues.
+    pk71 = date(premier(lg0, 'PK71') or premier(p, '2230')) if lg0 else None
+    pk72 = date(premier(lg0, 'PK72')) if lg0 else None
+    connues = lambda *xs: [x for x in xs if x]
+    exp = min(connues(date(premier(p, '2231')), pk72) or connues(pk71, date(premier(p, '2230'))) or [None])
+    cde = min(connues(date(premier(p, '2234')), exp, pk71) or [None])
+    for fid, d in (('2231', exp), ('2234', cde)):
+        if d and date(premier(p, fid)) != d:
+            p[fid] = [(None, d.strftime('%d/%m/%Y'))]
+            CORRECTIONS[f'{fid} : date de l\'UVC alignée (vide = date d\'import pour Gaia, ou après la logistique)'] += 1
     return p
 
 def regles_pack(p, pk):
@@ -226,7 +235,7 @@ def regles_pack(p, pk):
     return pk
 
 def ecrire_produit(L, p, gln, logs, restes):
-    p = regles_produit(p)
+    p = regles_produit(p, (logs.get(p['2'][0][1]) or [None])[0])
     L.append(f'\t<product gln="{gln}">')
     L += bloc(p, '\t\t', restes)
     g = p['2'][0][1]
