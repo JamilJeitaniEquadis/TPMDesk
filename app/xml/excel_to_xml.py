@@ -22,7 +22,7 @@ Règles :
 - Valeurs : telles que dans l'Excel, sauf les codes que le modèle montre lui-même (PK3, PK32, PK40…PK49, UL2).
   Le rapport liste les champs à liste de valeurs restés en libellé.
 """
-import argparse, json, os, re
+import argparse, datetime, json, os, re
 from collections import OrderedDict, defaultdict
 from xml.sax.saxutils import escape
 from openpyxl import load_workbook
@@ -183,7 +183,50 @@ def attribuer_gln(prods, donnes, fournisseurs={}):
             out[gt] = (maj, f, f"GLN {out[gt][0]} ({out[gt][2]}) ignoré : GLN majoritaire de la marque {marque} ({n} produits)")
     return out
 
+KG = {'Gramme (g)': 0.001, 'Kilogramme (kg)': 1, 'Milligramme (mg)': 1e-6}
+A_CORRIGER = []                                                       # incohérences laissées au fournisseur
+
+def date(s):
+    try: return datetime.datetime.strptime(s, '%d/%m/%Y')
+    except (TypeError, ValueError): return None
+
+def kg(p, v, u):
+    try: return float(premier(p, v)) * KG[premier(p, u)]
+    except (TypeError, ValueError, KeyError): return None
+
+def regles_produit(p):
+    """Règles Gaia vérifiées à l'import, appliquées avant l'écriture du produit."""
+    p = OrderedDict(p)
+    if p.get('1225') and not p.get('2107') and p.get('8_1'):         # RG_626 : marché cible de la nomenclature douanière
+        p['2107'] = p['8_1']; CORRECTIONS['2107 vide : marché cible de la nomenclature repris de 8_1'] += 1
+    exp, cde = date(premier(p, '2231')), date(premier(p, '2234'))
+    if exp and (cde is None or cde > exp):                            # RG_421 : début commande <= début expédition
+        p['2234'] = p['2231']; CORRECTIONS['2234 vide ou après 2231 : début de commande = début d\'expédition (2231)'] += 1
+    return p
+
+def regles_pack(p, pk):
+    """RG_138 (net du pack >= n x net UVC) et RG_627 (brut >= net). Recalcul seulement si les poids de l'UVC
+    sont cohérents (net <= brut) ; sinon le produit est listé pour correction par le fournisseur."""
+    try: n = float(premier(pk, 'PK17') or premier(pk, 'PK10'))
+    except (TypeError, ValueError): return pk
+    f = lambda k: float(premier(pk, k)) if premier(pk, k) else None
+    brut, net, ub, un = f('PK28'), f('PK30'), kg(p, '156', '157'), kg(p, '158', '159')
+    viole = (net is not None and un is not None and net < n * un - 1e-9) or (brut is not None and net is not None and brut < net)
+    if not viole: return pk
+    if ub is None or un is None or un > ub:
+        A_CORRIGER.append(f"{premier(p, '2')}  pack {premier(pk, 'PK1')} : brut {brut} kg, net {net} kg, {n:g} UVC de "
+                          f"{premier(p, '156')} {premier(p, '157')} brut / {premier(p, '158')} {premier(p, '159')} net")
+        return pk
+    pk = OrderedDict(pk)
+    fmt = lambda x: [(None, f'{x:.4f}'.rstrip('0').rstrip('.'))]
+    if net is None or abs(net - n * un) > 1e-9:
+        net = n * un; pk['PK30'] = fmt(net); CORRECTIONS['PK30 : poids net du pack recalculé (n x net UVC)'] += 1
+    if brut is None or brut < max(net, n * ub) - 1e-9:
+        pk['PK28'] = fmt(max(net, n * ub)); CORRECTIONS['PK28 : poids brut du pack recalculé (n x brut UVC)'] += 1
+    return pk
+
 def ecrire_produit(L, p, gln, logs, restes):
+    p = regles_produit(p)
     L.append(f'\t<product gln="{gln}">')
     L += bloc(p, '\t\t', restes)
     g = p['2'][0][1]
@@ -197,7 +240,7 @@ def ecrire_produit(L, p, gln, logs, restes):
             if not lg.get('PK71') and p.get('2230') and any(k.startswith('PK') for k in lg):
                 lg = OrderedDict(lg); lg['PK71'] = p['2230']   # obligatoire (REQ_PK71) : date de début de vente consommateur
                 CORRECTIONS['PK71 vide : repris de la date de début de vente consommateur (2230)'] += 1
-            pk = OrderedDict((k, v) for k, v in lg.items() if k.startswith('PK'))
+            pk = regles_pack(p, OrderedDict((k, v) for k, v in lg.items() if k.startswith('PK')))
             L += bloc(ul, '\t\t\t\t', restes)
             if pk:
                 L += ['\t\t\t\t<packs>', '\t\t\t\t\t<pack>']
@@ -258,6 +301,9 @@ def main():
             R.append(f"    {nom}: {len(gs)} produits  ({', '.join(gs[:4])}{' ...' if len(gs) > 4 else ''})")
     if CORRECTIONS:
         R += ['', 'Corrections appliquées :'] + [f'    {k} : {n}' for k, n in CORRECTIONS.items()]
+    if A_CORRIGER:
+        R += ['', f'Poids incohérents, à corriger par le fournisseur (Gaia renverra RG_627 / RG_138) : {len(A_CORRIGER)}']
+        R += ['    ' + x for x in A_CORRIGER]
     sans_tva = [premier(p, '2') for p in prods if not p.get('604')]
     if sans_tva:
         R += ['', f'TVA (604) vide sur {len(sans_tva)} produits : Gaia renverra REQ_603 ({", ".join(sans_tva[:4])}{" ..." if len(sans_tva) > 4 else ""})']
