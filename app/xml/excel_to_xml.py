@@ -197,6 +197,9 @@ def kg(p, v, u):
 def regles_produit(p, lg0=None):
     """Règles Gaia vérifiées à l'import, appliquées avant l'écriture du produit."""
     p = OrderedDict(p)
+    if 'CXC' in str(premier(p, '185_1')) and not p.get('185_3'):    # RG_909 : un contact CXC exige nom et adresse
+        for k in [k for k in p if '185' in parents(k)]: del p[k]
+        CORRECTIONS['Contact consommateur (CXC) sans adresse retiré (RG_909)'] += 1
     if p.get('1225') and not p.get('2107') and p.get('8_1'):         # RG_626 : marché cible de la nomenclature douanière
         p['2107'] = p['8_1']; CORRECTIONS['2107 vide : marché cible de la nomenclature repris de 8_1'] += 1
     # Dates de l'UVC (RG_421, RG_180, RG_183) : commande (2234) <= expédition (2231), et chacune <= celle du
@@ -239,7 +242,9 @@ def ecrire_produit(L, p, gln, logs, restes):
     L.append(f'\t<product gln="{gln}">')
     L += bloc(p, '\t\t', restes)
     g = p['2'][0][1]
-    if logs.get(g):
+    if logs.get(g) and not any(k.startswith('PK') for lg in logs[g] for k in lg):
+        CORRECTIONS['Logistique sans aucun niveau (PK) : non écrite'] += 1     # Gaia exige au moins un niveau
+    elif logs.get(g):
         L.append('\t\t<logs>')
         for lg in logs[g]:
             L.append('\t\t\t<log>')
@@ -313,6 +318,11 @@ def main():
     if A_CORRIGER:
         R += ['', f'Poids incohérents, à corriger par le fournisseur (Gaia renverra RG_627 / RG_138) : {len(A_CORRIGER)}']
         R += ['    ' + x for x in A_CORRIGER]
+    for fid, nom in (('1025', "Type d'emballage"),):
+        vides = [p for p in prods if premier(p, '2') in gln and not p.get(fid)]
+        if vides:
+            R += ['', f"{nom} ({fid}) vide sur {len(vides)} produits, obligatoire (REQ_{fid}) :"]
+            R += [f"    {premier(p, '2')}  {premier(p, '109')} - {premier(p, '97') or premier(p, '103')}" for p in vides]
     sans_tva = [premier(p, '2') for p in prods if not p.get('604')]
     if sans_tva:
         R += ['', f'TVA (604) vide sur {len(sans_tva)} produits : Gaia renverra REQ_603 ({", ".join(sans_tva[:4])}{" ..." if len(sans_tva) > 4 else ""})']
