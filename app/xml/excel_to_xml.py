@@ -32,6 +32,7 @@ IDENT = {'2', 'PK1', 'PK9', '3', '172', '185_4', '1225', '2320'}      # textes �
 TABLES = ('DynamicTable', 'DynamicPanel')
 DICO = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'equafield.json'), encoding='utf-8'))
                                                                       # id -> [type, id_parent(, 1 si disallowZero)] (table equafield)
+ALIAS = {k: v for k, v in json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gln_alias.json'), encoding='utf-8')).items() if not k.startswith('_')}
 NO_ZERO = {k for k, v in DICO.items() if len(v) > 2}                  # Gaia refuse 0 (erreur DAZ_<id>)
 def parents(fid):
     """Tables dynamiques qui contiennent le champ, de la plus proche à la plus haute (sections et modules exclus)."""
@@ -127,16 +128,16 @@ def gln_export(chemin):
     gt = col('gtin')[0]
     trio = list(zip(col('partyInformationList.partyRoleCode'), col('partyInformationList.partyGLN'),
                     col('partyInformationList.partyNameText')))
-    out = {}
+    out, info = {}, {}
     for r in lignes:
         if not r[gt]: continue
         for ro, gl, no in trio:
-            g = str(r[gl] or '').strip()
-            if str(r[ro] or '').endswith('SUPPLIER') and g:
-                out[str(r[gt]).strip().zfill(14)] = (g.zfill(13), norm(r[no])); break
-    return out
+            g, role = str(r[gl] or '').strip(), str(r[ro] or '')
+            if g and role.endswith('SUPPLIER'): out[str(r[gt]).strip().zfill(14)] = (g.zfill(13), norm(r[no]))
+            if g and role.endswith('INFORMATION_PROVIDER'): info[str(r[gt]).strip().zfill(14)] = (g.zfill(13), norm(r[no]))
+    return out, info
 
-def attribuer_gln(prods, donnes, fournisseurs={}):
+def attribuer_gln(prods, donnes, fournisseurs={}, info={}):
     """Renvoie {gtin: (gln, fournisseur, comment)} pour les produits dont le GLN est établi."""
     par_contact, par_marque = {}, defaultdict(set)
     for p in prods:
@@ -158,8 +159,11 @@ def attribuer_gln(prods, donnes, fournisseurs={}):
             if g and cle_gln(g):
                 out[gt] = (g, nom or norm(premier(p, '174')) or marque, comment); break
         else:
+            gi, fi = info.get(str(gt).zfill(14), (None, None))
             gs = par_marque.get(marque, set())
-            if not nom and len(gs) == 1:
+            if gi and cle_gln(gi):                                  # dernier recours : fournisseur de renseignements
+                out[gt] = (gi, fi or nom or marque, 'GLN du fournisseur de renseignements (export, INFORMATION_PROVIDER)')
+            elif not nom and len(gs) == 1:
                 out[gt] = (next(iter(gs)), marque, 'DÉDUIT de la marque ' + marque + ' (aucun contact sur le produit)')
     # Une marque = un fournisseur. Un GLN minoritaire au sein d'une marque vient d'un contact (185_4) ou du
     # propriétaire (172), pas du fournisseur : on reprend le GLN majoritaire de la marque. Le GLN lu dans
@@ -181,7 +185,12 @@ def attribuer_gln(prods, donnes, fournisseurs={}):
             out[gt] = (maj, f, f'DÉDUIT : GLN majoritaire de la marque {marque} ({n} produits)')
         elif out[gt][0] != maj and not fixe(out[gt][2]):
             out[gt] = (maj, f, f"GLN {out[gt][0]} ({out[gt][2]}) ignoré : GLN majoritaire de la marque {marque} ({n} produits)")
-    return out
+    for gt, (g, f, c) in list(out.items()):                          # un fournisseur = un GLN déjà connu de la centrale
+        if g in ALIAS:
+            out[gt] = (ALIAS[g], f, f'GLN {g} ({c}) remplacé par {ALIAS[g]}, GLN déjà intégré du fournisseur (gln_alias.json)')
+    noms = defaultdict(lambda: defaultdict(int))
+    for g, f, c in out.values(): noms[g][f] += 1
+    return {gt: (g, max(noms[g].items(), key=lambda x: x[1])[0], c) for gt, (g, f, c) in out.items()}
 
 KG = {'Gramme (g)': 0.001, 'Kilogramme (kg)': 1, 'Milligramme (mg)': 1e-6}
 A_CORRIGER = []                                                       # incohérences laissées au fournisseur
@@ -285,7 +294,7 @@ def main():
     if 'Logistique' in wb.sheetnames:
         for rec in lire(wb['Logistique']):
             logs[rec['2'][0][1]].append(rec)
-    gln = attribuer_gln(prods, donnes, gln_export(a.export) if a.export else {})
+    gln = attribuer_gln(prods, donnes, *(gln_export(a.export) if a.export else ({}, {})))
     groupes = defaultdict(list)
     for p in prods:
         if premier(p, '2') in gln: groupes[gln[premier(p, '2')][0]].append(p)
@@ -305,7 +314,7 @@ def main():
         R.append(f"{os.path.basename(f)}  ({len(ps)} produits, GLN {g}, {nom})")
         for p in ps:
             comment = gln[premier(p, '2')][2]
-            if comment.startswith(('DÉDUIT', 'GLN ')) and 'ignoré' in comment or comment.startswith('DÉDUIT'):
+            if comment.startswith('DÉDUIT') or 'ignoré' in comment or 'remplacé' in comment or 'INFORMATION_PROVIDER' in comment:
                 R.append(f"    {premier(p, '2')}  {comment}")
     if sans:
         R += ['', 'SANS GLN, écrits dans aucun fichier (relancer avec --gln "NOM=GLN") :']
