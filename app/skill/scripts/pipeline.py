@@ -333,6 +333,10 @@ def construire(export_path, log):
         else:
             taux = num(P.v(r, 'dutyFeeTaxInformationList.dutyFeeTaxList.dutyFeeTaxRateNumber'))
             vente = P.v(r, 'retailVATTypeOrganization1337')   # « TVA à la vente* » du distributeur, ex. « TVA taux normal 20% ∣ REGULAR »
+            if taux is None and code(P.v(r, 'dutyFeeTaxInformationList.dutyFeeTaxTypeCode')) == 'REGULAR' \
+                    and code(P.v(r, 'dutyFeeTaxInformationList.dutyFeeTaxCountryCode')) in (None, '', '250') and vente in (None, ''):
+                taux = 20                                    # taux normal français déclaré sans le taux
+                log.append({'gtin': g, 'champ': 'Taux de TVA (604)', 'constat': "Taux absent : type « TVA taux normal » (REGULAR), France : 20 %."})
             if taux is None and vente not in (None, ''):
                 m = re.search(r'(\d+(?:[.,]\d+)?)\s*%', str(lab(vente) or vente))
                 taux = num(m.group(1).replace(',', '.')) if m else {'REGULAR': 20, 'EXEMPT': 0}.get(code(vente))
