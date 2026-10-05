@@ -22,7 +22,7 @@ Règles :
 - Valeurs : telles que dans l'Excel, sauf les codes que le modèle montre lui-même (PK3, PK32, PK40…PK49, UL2).
   Le rapport liste les champs à liste de valeurs restés en libellé.
 """
-import argparse, datetime, json, os, re
+import argparse, datetime, json, os, re, unicodedata
 from collections import OrderedDict, defaultdict
 from xml.sax.saxutils import escape
 from openpyxl import load_workbook
@@ -49,6 +49,8 @@ CODES_MODELE = {                                                      # valeurs 
 }
 
 CORRECTIONS = defaultdict(int)
+NOMS_PARTIES = {}                                                     # GLN -> nom d'organisation lu dans l'export
+GENERIQUE = re.compile(r'SERVICE|CONSOMMATEUR|FOURNISSEUR|CLIENT|CONTACT|^\W*$')
 
 def texte(fid, v):
     if v is None: return None
@@ -135,6 +137,7 @@ def gln_export(chemin):
             g, role = str(r[gl] or '').strip(), str(r[ro] or '')
             if g and role.endswith('SUPPLIER'): out[str(r[gt]).strip().zfill(14)] = (g.zfill(13), norm(r[no]))
             if g and role.endswith('INFORMATION_PROVIDER'): info[str(r[gt]).strip().zfill(14)] = (g.zfill(13), norm(r[no]))
+            if g and r[no]: NOMS_PARTIES.setdefault(g.zfill(13), norm(r[no]))
     return out, info
 
 def attribuer_gln(prods, donnes, fournisseurs={}, info={}):
@@ -188,9 +191,15 @@ def attribuer_gln(prods, donnes, fournisseurs={}, info={}):
     for gt, (g, f, c) in list(out.items()):                          # un fournisseur = un GLN déjà connu de la centrale
         if g in ALIAS:
             out[gt] = (ALIAS[g], f, f'GLN {g} ({c}) remplacé par {ALIAS[g]}, GLN déjà intégré du fournisseur (gln_alias.json)')
+    # nom du fournisseur pour le fichier : le plus fréquent, en écartant les contacts génériques
+    # (« SERVICE CONSOMMATEUR », « FOURNISSEUR »…) au profit du nom de l'organisation lu dans l'export
     noms = defaultdict(lambda: defaultdict(int))
-    for g, f, c in out.values(): noms[g][f] += 1
-    return {gt: (g, max(noms[g].items(), key=lambda x: x[1])[0], c) for gt, (g, f, c) in out.items()}
+    for g, f, c in out.values():
+        if f and not GENERIQUE.search(f): noms[g][f] += 1
+    for g, f in NOMS_PARTIES.items():
+        if g in noms and not noms[g]: noms[g][f] += 1
+    nom = lambda g, f: max(noms[g].items(), key=lambda x: x[1])[0] if noms.get(g) else (NOMS_PARTIES.get(g) or f)
+    return {gt: (g, nom(g, f), c) for gt, (g, f, c) in out.items()}
 
 KG = {'Gramme (g)': 0.001, 'Kilogramme (kg)': 1, 'Milligramme (mg)': 1e-6}
 A_CORRIGER = []                                                       # incohérences laissées au fournisseur
@@ -302,7 +311,8 @@ def main():
     restes, fichiers = set(), []
     for g, ps in sorted(groupes.items(), key=lambda x: -len(x[1])):
         nom = gln[premier(ps[0], '2')][1]
-        f = os.path.join(a.outdir, f"{base}_{g}_{re.sub(r'[^A-Za-z0-9]+', '_', nom).strip('_')}.xml")
+        ascii_ = unicodedata.normalize('NFKD', nom).encode('ascii', 'ignore').decode()
+        f = os.path.join(a.outdir, f"{base}_{g}_{re.sub(r'[^A-Za-z0-9]+', '_', ascii_).strip('_')}.xml")
         L = ['<?xml version="1.0" encoding="UTF-8"?>', '<products>']
         for p in ps: ecrire_produit(L, p, g, logs, restes)
         L.append('</products>')

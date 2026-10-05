@@ -20,6 +20,9 @@ if len(roues) < 2:
 for w in roues:
     fichiers['/wheels/' + os.path.basename(w)[:-len('.wasm')]] = w
 
+for f in sorted(glob.glob(os.path.join(ICI, 'xml', '*.py')) + glob.glob(os.path.join(ICI, 'xml', '*.json'))):
+    fichiers['/xml/' + os.path.basename(f)] = f
+
 for f in glob.glob(os.path.join(ICI, 'defaults', '*.xlsx')):
     fichiers['/defaults/' + os.path.basename(f)] = f
 
