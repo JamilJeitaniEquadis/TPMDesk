@@ -35,7 +35,8 @@ def convertir(src, nom, template, gln_lignes='', alias_json='{}', client='MARION
     base = os.path.splitext(nom)[0]
     m = re.match(r'export_\d+_\d{8}(\d{6})$', base)                 # export_28195_20260630112352 -> lot 112352
     lot = 'Extraction_GAIA_' + (client.upper() + '_' if client else '') + 'export_' + (m.group(1) if m else base)
-    out = {'nature': nature(src), 'fichiers': [], 'rapport': '', 'journal': '', 'extraction': None}
+    out = {'nature': nature(src), 'fichiers': [], 'rapport': '', 'journal': '', 'extraction': None,
+           'lot': m.group(1) if m else re.sub(r'^Extraction_GAIA_(?:[A-Z]+_)?export_', '', base)}
     export = None
     if out['nature'] == 'export':
         import pipeline

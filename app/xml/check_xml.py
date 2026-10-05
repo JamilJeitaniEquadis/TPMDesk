@@ -54,6 +54,7 @@ def verifier_fichier(f):
             except ValueError: pass
         for x in errs: bad[x].append(g)
     return {'fichier': os.path.basename(f), 'gln': ps[0].get('gln') if ps else '', 'produits': len(ps),
+            'gtins': [p.findtext("field[@id='2']/value") for p in ps],
             'erreurs': {k: v for k, v in sorted(bad.items())}}
 
 def verifier(dossier):
