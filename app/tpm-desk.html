@@ -408,6 +408,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         </button>
         <div class="fold" id="fold-xml">
           <button data-v="xml">Convert by GLN</button>
+          <button data-v="xinteg">Integration setup</button>
         </div>
       </div>
       <button class="mod-head solo" data-v="sso">SSO</button>
@@ -511,6 +512,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
       <div class="runtime" id="xRt"><span class="dot" aria-hidden="true"></span><span id="xRtTxt">Drop a file, then convert. The Python runtime loads once per visit (about 14&nbsp;MB).</span></div>
       <div class="actions">
         <button class="btn" id="xGo" disabled>Convert to XML</button>
+          <a class="btn ghost" href="#" data-goto="xinteg">Next: integration setup &rarr;</a>
       </div>
 
       <div id="xRes" class="hide">
@@ -720,6 +722,114 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         <button class="btn ghost" id="iBack">&larr; Back</button>
         <span class="note" id="iWhy"></span>
         <button class="btn" id="iNext">Next &rarr;</button>
+      </div>
+    </section>
+    <!-- ============ INTEGRATION SETUP (XML) ============ -->
+    <section class="view" id="v-xinteg">
+      <div class="ssohead">
+        <div>
+          <h1>Integration setup &middot; XML</h1>
+          <p class="note">XML_Cloud interface: the SFTP folder the batch watches for the XML files, and its row in <code>integration_interface</code>. For 20090 (Marionnaud) it already exists: interface 619, folder <code>20090-XMLCIN</code>.</p>
+        </div>
+        <div class="seg" role="group" aria-label="Copy settings from">
+          <button data-ref="11555" aria-pressed="true">Like 11555</button>
+          <button data-ref="10914" aria-pressed="false">Like 10914</button>
+        </div>
+      </div>
+      <ol class="wiz" id="knWiz">
+        <li><button data-s="0" aria-current="step"><b>1</b>Interface</button></li>
+        <li><button data-s="1"><b>2</b>Server folder</button></li>
+        <li><button data-s="2"><b>3</b>SQL row</button></li>
+        <li><button data-s="3"><b>4</b>Drop the XML files</button></li>
+      </ol>
+      <div class="recap" id="knRecap" hidden></div>
+
+      <div class="wpane on" data-q="0">
+        <div class="wgrid">
+          <fieldset class="box">
+            <legend>Interface</legend>
+            <label class="f"><span>idIndustriel (given by your lead) *</span><input type="text" id="kId" inputmode="numeric" placeholder="20090" autocomplete="off"></label>
+            <label class="f"><span>Description *</span><input type="text" id="kDesc" placeholder="Création / MAJ massive XML Cloud" autocomplete="off"></label>
+            <label class="f"><span>Report recipients (emailsDestinataires)</span><input type="text" id="kMails" value="internal@equadis.com" autocomplete="off"></label>
+            <label class="f"><span>Internal emails (emails_internes, comma separated)</span><input type="text" id="kInt" placeholder="you@equadis.com" autocomplete="off"></label>
+            <label class="f"><span>Folder name on the server</span><input type="text" id="kFolder" placeholder="20090-XMLCIN" autocomplete="off"></label>
+            <div class="picks" id="kPicks"><button type="button" data-suf="">id</button><button type="button" data-suf="-XMLCIN">id-XMLCIN</button><button type="button" data-suf="-EquaExcel">id-EquaExcel</button></div>
+            <label class="f"><span>Folder root on the SFTP server (WinSCP)</span><input type="text" id="kSftp" value="/shared/Batchs/integrationNew" autocomplete="off"></label>
+            <label class="f"><span>Same folder as the batch sees it (directoryInterface)</span><input type="text" id="kRoot" value="D:\batchs\integrationNew" autocomplete="off"></label>
+          </fieldset>
+          <fieldset class="box">
+            <legend>Flags</legend>
+            <div class="flags" id="kFlags"></div>
+            <p class="note">Pre-set from the reference row chosen at the top. Change one only if your lead asks.</p>
+          </fieldset>
+        </div>
+      </div>
+
+      <div class="wpane" data-q="1">
+        <div class="wgrid wide">
+          <div class="box">
+            <div class="mailhead"><b>Check or create the folder on the SFTP server</b><span class="pill p-ok">WinSCP</span></div>
+            <ul class="checks">
+              <li><span>1</span><div>In WinSCP, open <code id="kSftpRoot"></code></div></li>
+              <li><span>2</span><div>Look for <b id="kName1"></b>. If it isn&rsquo;t there: <b>New &rsaquo; Directory</b>: <code id="kName2"></code></div></li>
+              <li><span>3</span><div>Open it and look for <code>Received</code>. If it isn&rsquo;t there: <b>New &rsaquo; Directory</b>: <code>Received</code></div></li>
+            </ul>
+            <p class="note">Or paste in WinSCP&rsquo;s terminal (Commands &rsaquo; Open Terminal) or any SSH session. <code>mkdir -p</code> leaves an existing folder as it is.</p>
+            <pre class="mailbody code" id="kSh"></pre>
+            <div class="acts"><button class="btn" data-copy="kSh">Copy</button><span class="note" data-cout="kSh"></span></div>
+          </div>
+          <div class="box brief"><b>Result</b><ul id="kTree"></ul>
+            <p class="note">Rights: match the neighbouring folders (most show <code>rwxrwxrwx</code>). The batch account must be able to read and move files in <code>Received</code>.</p></div>
+        </div>
+      </div>
+
+      <div class="wpane" data-q="2">
+        <div class="wgrid wide">
+          <div class="box">
+            <div class="mailhead"><b>Run in SQL Server Management Studio</b>
+              <span class="seg small" role="group" aria-label="Script style"><button data-sql="safe" aria-pressed="true">Safe</button><button data-sql="plain" aria-pressed="false">Plain</button></span></div>
+            <pre class="mailbody code" id="kSql"></pre>
+            <div class="acts"><button class="btn" data-copy="kSql">Copy</button>
+              <label class="f inline lead"><span>Your login can&rsquo;t write? Send it to</span><input type="email" id="kLead" placeholder="lead@equadis.com" autocomplete="off"></label>
+              <a class="btn ghost" id="kLeadBtn" href="https://outlook.office.com/mail/" target="_blank" rel="noopener">Send to my lead</a>
+              <span class="note" data-cout="kSql"></span></div>
+          </div>
+          <div class="box brief"><b>How to run it</b><ul>
+            <li>Open a <b>new, empty</b> query window, so only this script runs.</li>
+            <li>Run query <b>1</b> alone first. If a row already points to this folder, the interface exists: don&rsquo;t insert, go to step 4. For 20090 it is row 619 (XML_Cloud, <code>20090-XMLCIN</code>).</li>
+            <li>Query <b>1b</b> lists every XML_Cloud interface: compare the flags with the row you are about to insert.</li>
+            <li><b>Safe</b>: checks, then the INSERT inside a transaction; look at the row, then run <code>COMMIT</code> (or <code>ROLLBACK</code> to undo). Don&rsquo;t leave the transaction open: it locks the table.</li>
+            <li><b>Plain</b>: only the INSERT, then a SELECT. Use it if Safe is refused.</li>
+            <li><b>&ldquo;Msg 0 &hellip; Operation not allowed&rdquo;</b> on the INSERT while SELECTs work: your login reads but can&rsquo;t write (the <code>equa_agent</code> login is like this). Nothing in the script can get past it: use <b>Send to my lead</b>, who runs it with a login that can write.</li>
+          </ul></div>
+        </div>
+      </div>
+
+      <div class="wpane" data-q="3">
+        <div class="wgrid wide">
+          <div class="box">
+            <div class="mailhead"><b>Drop the XML files</b><span class="pill p-ok">WinSCP</span></div>
+            <ul class="checks">
+              <li><span>1</span><div>Convert the export in <a href="#" data-goto="xml">Convert by GLN</a>, check the result and <b>Download all XML (.zip)</b>. Unzip it.</div></li>
+              <li><span>2</span><div>Connect to the server in WinSCP and open <code id="kDrop"></code>.</div></li>
+              <li><span>3</span><div>Upload the <code>.xml</code> files (drag them from the left panel). One file per supplier GLN: drop them all, the batch takes them one by one. Leave the report <code>_rapport.txt</code> out.</div></li>
+              <li><span>4</span><div>The batch picks each file up; the integration reports go to <b id="kRep"></b>. In Gaia, the file name gets a timestamp, e.g. <code>&hellip;_GARANCIA (1)_1790859053874.xml</code>.</div></li>
+            </ul>
+            <p class="note">In the database, the same folder is <code id="kDbPath"></code>.</p>
+          </div>
+          <div class="box brief"><b>Before you drop</b><ul>
+            <li>Folder, then SQL row, then the files. Dropping a file is what starts an integration, so do it last and on purpose.</li>
+            <li>Every file must carry one GLN only: Convert by GLN builds them that way and checks it.</li>
+            <li>Products flagged in Convert by GLN (supplier weights, no VAT, no packaging type) will come back as errors in the report; the rest of each file goes in.</li>
+            <li>Successful logistics don&rsquo;t show in the report: only logistics errors are listed.</li>
+          </ul></div>
+        </div>
+      </div>
+
+      <div class="wnav">
+        <button class="btn ghost" id="kBack">&larr; Back</button>
+        <span class="note" id="kWhy"></span>
+        <button class="btn" id="kNext">Next &rarr;</button>
       </div>
     </section>
 
@@ -1309,6 +1419,140 @@ function md(t){
   });
   document.querySelectorAll('[data-goto]').forEach(a=>a.onclick=e=>{ e.preventDefault();
     const b=document.querySelector('.rail button[data-v="'+a.dataset.goto+'"]'); if(b) b.click(); });
+  appliquerRef(); rendre();
+})();
+
+/* =======================================================================
+   INTEGRATION SETUP XML  (copie de la version Excel_Cloud, identifiants k*, interface XML_Cloud : dossier serveur + ligne integration_interface)
+   La page n'atteint ni le serveur ni la base : elle écrit les commandes exactes à coller.
+   ======================================================================= */
+(function(){
+  /* lignes de référence données par le TPM (select * from integration_interface where integrationType='XML_Cloud') */
+  const REF = {
+    '11555': {forceIntegration:0, skipValidation:0, modifyLastChange:1, new_batch:1, isActive:1, is_interne:1,
+              xslPath:null, id_integration_interface_holding:null, sleep_time:null, skipIntegration:null},
+    '10914': {forceIntegration:1, skipValidation:0, modifyLastChange:1, new_batch:1, isActive:1, is_interne:1,
+              xslPath:null, id_integration_interface_holding:null, sleep_time:null, skipIntegration:null},
+  };
+  const BITS = ['isActive','forceIntegration','skipValidation','modifyLastChange','new_batch','is_interne'];
+  const NULLS = ['xslPath','id_integration_interface_holding','sleep_time','skipIntegration'];
+  const v = id => ($('#'+id).value||'').trim();
+  let ref='11555', etape=0, style='safe';
+
+  const box=$('#kFlags');
+  BITS.forEach(k=>{ const l=el('label'); l.appendChild(el('span',null,k));
+    const s=document.createElement('select'); s.id='flk-'+k; ['0','1'].forEach(o=>{ const x=el('option',null,o); x.value=o; s.appendChild(x); });
+    l.appendChild(s); box.appendChild(l); });
+  NULLS.forEach(k=>{ const l=el('label'); l.appendChild(el('span',null,k));
+    const s=document.createElement('input'); s.id='flk-'+k; s.placeholder='NULL'; s.autocomplete='off';
+    l.appendChild(s); box.appendChild(l); });
+  function appliquerRef(){
+    const r=REF[ref];
+    BITS.forEach(k=>$('#fl-'+k).value=String(r[k]));
+    NULLS.forEach(k=>$('#fl-'+k).value=r[k]==null?'':String(r[k]));
+  }
+
+  const idOk = () => /^\d{3,9}$/.test(v('kId'));
+  const valide = () => idOk() && !!v('kDesc');
+  const nom = () => v('kFolder') || (v('kId') ? v('kId')+'-XMLCIN' : '<idIndustriel>-XMLCIN');
+  const racine = () => v('kRoot').replace(/[\\\/]+$/,'') || 'D:\\batchs\\integrationNew';
+  const sftp = () => (v('kSftp').replace(/\/+$/,'') || '/shared/Batchs/integrationNew');
+  const dossier = () => racine()+'\\'+nom()+'\\Received';
+  const dossierSftp = () => sftp()+'/'+nom()+'/Received';
+  const q = s => "N'"+String(s).replace(/'/g,"''")+"'";
+  const lit = (k,val) => { if(val==='' || val==null) return 'NULL';
+    if(k==='xslPath') return q(val); return /^-?\d+$/.test(val) ? val : 'NULL'; };
+
+  function sql(){
+    const id=v('kId')||'<idIndustriel>';
+    const cols=['idIndustriel','integrationType','directoryInterface','xslPath','descriptionInterface','emailsDestinataires',
+      'isActive','forceIntegration','skipValidation','modifyLastChange','new_batch','id_integration_interface_holding',
+      'sleep_time','is_interne','emails_internes','skipIntegration'];
+    const f=k=>$('#fl-'+k).value;
+    const vals=[id, "'XML_Cloud'", q(dossier()), lit('xslPath',f('xslPath')), q(v('kDesc')), v('kMails')?q(v('kMails')):'NULL',
+      f('isActive'), f('forceIntegration'), f('skipValidation'), f('modifyLastChange'), f('new_batch'),
+      lit('x',f('id_integration_interface_holding')), lit('x',f('sleep_time')), f('is_interne'),
+      v('kInt')?q(v('kInt').replace(/\s*[,;]\s*/g,',')):'NULL', lit('x',f('skipIntegration'))];
+    const ins=['INSERT INTO integration_interface','  ('+cols.join(', ')+')','VALUES','  ('+vals.join(', ')+');'];
+    const voir="SELECT * FROM integration_interface WHERE idIndustriel = "+id+" AND integrationType = 'XML_Cloud';";
+    if(style==='plain') return ['-- XML_Cloud interface for idIndustriel '+id+' (plain: no transaction, no checks)','']
+      .concat(ins,['',voir]).join('\n');
+    return [
+'-- XML_Cloud interface for idIndustriel '+id+(v('kDesc')?' ('+v('kDesc')+')':''),
+'-- Settings copied from reference row '+ref+'.',
+'',
+'-- 0. Is id generated by the database? 1 = yes (the INSERT below leaves it out).',
+"SELECT COLUMNPROPERTY(OBJECT_ID('integration_interface'), 'id', 'IsIdentity') AS id_is_identity;",
+'',
+'-- 1. Every interface already declared for this idIndustriel, whatever its type.',
+'--    If a row already has directoryInterface = '+dossier().replace(/\n/g,' ')+' : STOP, do not insert.',
+"SELECT * FROM integration_interface WHERE idIndustriel = "+id+";",
+'',
+'-- 1b. Every XML_Cloud interface, to compare the flags.',
+"SELECT * FROM integration_interface WHERE integrationType = 'XML_Cloud';",
+'',
+'-- 2. Insert, inside a transaction.',
+'BEGIN TRANSACTION;',
+'',
+'INSERT INTO integration_interface',
+'  ('+cols.join(', ')+')',
+'VALUES',
+'  ('+vals.join(', ')+');',
+'',
+'-- 3. Check the row, then run ONE of the two lines below.',
+"SELECT * FROM integration_interface WHERE idIndustriel = "+id+" AND integrationType = 'XML_Cloud';",
+'',
+'-- COMMIT;',
+'-- ROLLBACK;'].join('\n');
+  }
+  function rendre(){
+    const d=dossier(), id=v('kId')||'<idIndustriel>';
+    document.querySelectorAll('#v-xinteg [data-ref]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.ref===ref));
+    const ds=dossierSftp(), sq=x=>"'"+x.replace(/'/g,"'\\''")+"'";
+    $('#kSh').textContent='mkdir -p '+sq(ds)+'\nls -ld '+sq(sftp()+'/'+nom())+' '+sq(ds);
+    $('#kSftpRoot').textContent=sftp()+'/'; ['kName1','kName2'].forEach(k=>$('#'+k).textContent=nom());
+    const t=$('#kTree'); t.innerHTML='';
+    [sftp()+'/', '\u2514 '+nom(), '\u2003\u2514 Received  \u2190 the batch reads this folder'].forEach(x=>t.appendChild(el('li',null,x)));
+    document.querySelectorAll('#v-xinteg [data-sql]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.sql===style));
+    $('#kSql').textContent=sql();
+    const plain=(()=>{ const k=style; style='plain'; const t=sql(); style=k; return t; })();
+    const corps='Hi,\n\nCould you run this on equadis200, please? It creates the XML_Cloud interface for idIndustriel '+id+
+      ' (folder '+nom()+'\\Received). My login can read integration_interface but gets "Operation not allowed" on INSERT.\n\n'+plain+'\n\nThanks,';
+    $('#kLeadBtn').href='https://outlook.office.com/mail/deeplink/compose?'+new URLSearchParams(
+      {to:v('kLead'), subject:'XML_Cloud interface '+id+' ('+nom()+'): INSERT to run', body:corps}).toString();
+    $('#kDrop').textContent=ds; $('#kDbPath').textContent=d;
+    $('#kRep').textContent=v('kMails')||'no one';
+    const ok=valide();
+    document.querySelectorAll('#knWiz button').forEach(b=>{ const i=+b.dataset.s;
+      b.setAttribute('aria-current', i===etape?'step':'false'); b.disabled=i>0&&!ok; b.dataset.ok=(i===0&&ok)?'1':'0';
+      b.title = i>0 && !ok ? 'Fill in step 1 first' : ''; });
+    document.querySelectorAll('#v-xinteg .wpane').forEach(p=>p.classList.toggle('on', +p.dataset.q===etape));
+    /* rappel de l'étape 1 : les étapes 2 à 4 en sont toutes dérivées */
+    const rc=$('#knRecap'); rc.hidden = etape===0;
+    if(etape>0){ rc.innerHTML=''; rc.appendChild(el('b',null,'Step 1'));
+      [['idIndustriel',id],['Folder',nom()],['Type','XML_Cloud'],['Reports',v('kMails')],['Settings like',ref]]
+        .filter(x=>x[1]).forEach(([k,x])=>{ const sp=el('span'); sp.appendChild(el('em',null,k)); sp.appendChild(el('strong',null,x)); rc.appendChild(sp); });
+      const e=el('button',null,'Edit'); e.onclick=()=>aller(0); rc.appendChild(e); }
+    $('#kId').closest('.f').classList.toggle('miss', etape===0 && !!v('kId') && !idOk());
+    $('#kBack').disabled=etape===0; $('#kNext').disabled=etape===3||!ok;
+    const w=$('#kWhy'); w.classList.toggle('go', ok && etape===0);
+    w.textContent = !ok ? (v('kId')&&!idOk() ? 'idIndustriel is a number, like 20090'
+                          : 'Fill in the idIndustriel and a description: steps 2, 3 and 4 are built from them')
+                        : etape===0 ? 'Ready: open step 2, 3 or 4, in any order' : '';
+  }
+  const aller=i=>{ if(i>0&&!valide()) return; etape=Math.max(0,Math.min(3,i)); rendre(); window.scrollTo(0,0); };
+  document.querySelectorAll('#knWiz button').forEach(b=>b.onclick=()=>aller(+b.dataset.s));
+  $('#kBack').onclick=()=>aller(etape-1); $('#kNext').onclick=()=>aller(etape+1);
+  document.querySelectorAll('#v-xinteg [data-ref]').forEach(b=>b.onclick=()=>{ ref=b.dataset.ref; appliquerRef(); rendre(); });
+  document.querySelectorAll('#v-xinteg [data-sql]').forEach(b=>b.onclick=()=>{ style=b.dataset.sql; rendre(); });
+  document.querySelectorAll('#kPicks [data-suf]').forEach(b=>b.onclick=()=>{ $('#kFolder').value=(v('kId')||'')+b.dataset.suf; rendre(); });
+  $('#kId').addEventListener('input',()=>{ $('#kFolder').placeholder=(v('kId')||'20090')+'-XMLCIN'; });
+  document.querySelectorAll('#v-xinteg input, #v-xinteg select').forEach(x=>x.addEventListener('input',rendre));
+  document.querySelectorAll('#v-xinteg [data-copy]').forEach(b=>b.onclick=async()=>{
+    const out=document.querySelector('[data-cout="'+b.dataset.copy+'"]');
+    try{ await navigator.clipboard.writeText($('#'+b.dataset.copy).textContent); out.textContent='Copied.'; }
+    catch(e){ out.textContent='Copy blocked here: select the text above.'; }
+  });
   appliquerRef(); rendre();
 })();
 
