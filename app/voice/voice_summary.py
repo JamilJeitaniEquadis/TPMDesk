@@ -6,7 +6,7 @@
 It captures the sound going to the current output (speakers, headphones, Bluetooth...),
 follows you when you switch device, and writes the text live while you listen. Whisper
 runs on this machine: the audio never leaves it, only the text goes to Claude.
-Press Ctrl+C when you are done. The folder voice/<date>_<title>/ then holds
+Press Enter (or Ctrl+C) when you are done. The folder recordings/<date>_<title>/ then holds
 transcript.txt and summary.md (transcript.txt can also be dropped in the desk's
 Voice summary tab).
 
@@ -110,7 +110,7 @@ class Chunker:
 
 
 def listen(folder: str, model_size: str, language: str | None, with_mic: bool) -> str:
-    """Records and transcribes until Ctrl+C. Returns the transcript path."""
+    """Records and transcribes until Enter or Ctrl+C. Returns the transcript path."""
     from faster_whisper import WhisperModel
     print(f'Loading Whisper "{model_size}" (the first run downloads it)...')
     model = WhisperModel(model_size, device='auto', compute_type='int8')
@@ -136,7 +136,8 @@ def listen(folder: str, model_size: str, language: str | None, with_mic: bool) -
     w.start()
     chunks = Chunker(lambda audio, offset: todo.put((audio, offset)))
     signal.signal(signal.SIGINT, lambda *_: stop.set())      # Ctrl+C ends the capture cleanly
-    print('Listening. Play anything; press Ctrl+C when you are done.')
+    threading.Thread(target=lambda: (sys.stdin.readline(), stop.set()), daemon=True).start()   # so does Enter
+    print('Listening. Play anything; press Enter when you are done.')
     capture(chunks.add, stop, with_mic)
     print('\nFinishing the transcript...')
     chunks.flush()
