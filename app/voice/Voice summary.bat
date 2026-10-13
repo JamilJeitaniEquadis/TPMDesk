@@ -13,9 +13,20 @@ if defined PY goto :packages
 set "PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
 if exist "%PY%" goto :packages
 
-echo Python is not installed. Installing Python 3.12 for your account (a few minutes)...
-winget install -e --id Python.Python.3.12 --scope user --accept-package-agreements --accept-source-agreements
-if exist "%PY%" goto :packages
+echo Python is not installed. Installing Python 3.12 for your account only (no admin, about 2 minutes)...
+set "SETUP=%TEMP%\python-3.12.10-amd64.exe"
+curl -L -s -f -o "%SETUP%" https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe
+if errorlevel 1 (
+  echo The download from python.org failed: the network may block it.
+  goto :manual
+)
+"%SETUP%" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=0 Include_test=0 Shortcuts=0
+del "%SETUP%" >nul 2>&1
+if exist "%PY%" (
+  echo Python installed.
+  goto :packages
+)
+:manual
 echo.
 echo Python could not be installed automatically.
 echo Install it from https://www.python.org/downloads/ (tick "Add python.exe to PATH"),

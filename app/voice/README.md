@@ -8,7 +8,7 @@ Whisper runs on your laptop, so the audio never leaves it; only the text goes to
 
 Double-click **Voice summary.bat**. The first time it sets everything up by itself:
 
-1. installs Python 3.12 for your account if it is missing (with winget);
+1. installs Python 3.12 silently for your account only if it is missing (python.org installer, no admin rights needed);
 2. installs the voice packages (a few minutes);
 3. asks for your Anthropic API key and saves it (Enter skips it: you then only get the transcript).
 
