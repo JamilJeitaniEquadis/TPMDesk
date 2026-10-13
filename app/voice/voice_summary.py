@@ -20,6 +20,7 @@ import json
 import os
 import queue
 import re
+import shutil
 import signal
 import site
 import subprocess
@@ -204,7 +205,47 @@ one summary with the same fields: remove duplicates, keep the latest version of 
 changed, drop a question a later part answered, and write a fresh overview of the whole."""
 
 
+class NoClaude(Exception):
+    """Claude Code is missing, not signed in, or failed: the transcript goes to the desk instead."""
+
+
+def claude_cli() -> str | None:
+    """Claude Code (signed in with your Claude account): summaries without an API key."""
+    found = shutil.which('claude')
+    if found:
+        return found
+    for p in (os.path.join(os.path.expanduser('~'), '.local', 'bin', 'claude.exe'),
+              os.path.join(os.path.expanduser('~'), '.local', 'bin', 'claude')):
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def ask_cli(system: str, user: str) -> dict:
+    # Everything goes through stdin: a long prompt with line breaks doesn't survive a Windows command line.
+    task = (system + '\n\nReply with only one JSON object that matches this JSON schema, no other text and no '
+            'tools:\n' + json.dumps(SCHEMA) + '\n\n' + user)
+    try:
+        r = subprocess.run([claude_cli(), '-p', 'Follow the instructions in the text you received.',
+                            '--output-format', 'json'], input=task.encode('utf-8'), capture_output=True, timeout=1200)
+    except (OSError, TypeError, subprocess.TimeoutExpired) as e:
+        raise NoClaude(str(e))
+    try:
+        res = json.loads(r.stdout.decode('utf-8', 'replace'))
+    except json.JSONDecodeError:
+        raise NoClaude((r.stderr or r.stdout).decode('utf-8', 'replace').strip()[-300:] or f'exit code {r.returncode}')
+    text = str(res.get('result', ''))
+    if res.get('is_error'):
+        raise NoClaude(text[-300:])
+    try:
+        return json.loads(text[text.index('{'):text.rindex('}') + 1])
+    except ValueError:
+        raise NoClaude('Claude Code did not answer with a summary')
+
+
 def ask_claude(system: str, user: str) -> dict:
+    if not os.environ.get('ANTHROPIC_API_KEY'):
+        return ask_cli(system, user)
     import anthropic
     try:
         resp = anthropic.Anthropic().messages.create(
@@ -326,11 +367,18 @@ def main(argv=None):
     print('\nTranscript:', path)
     if a.no_summary:
         return
-    if not os.environ.get('ANTHROPIC_API_KEY'):
+    if not os.environ.get('ANTHROPIC_API_KEY') and not claude_cli():
+        print('\nClaude Code is not installed: see app/voice/README.md (one time, 2 minutes).')
         to_desk(text)
         return
     print('Summarising with Claude...')
-    md = to_markdown(summarise(text, a.title), a.title, now.strftime('%d/%m/%Y %H:%M'))
+    try:
+        md = to_markdown(summarise(text, a.title), a.title, now.strftime('%d/%m/%Y %H:%M'))
+    except NoClaude as e:
+        print(f'\nClaude Code could not summarise: {e}')
+        print('If it asks you to sign in: open a terminal, type  claude  , log in, then /exit.')
+        to_desk(text)
+        return
     out = os.path.join(folder, 'summary.md')
     open(out, 'w', encoding='utf-8').write(md)
     print('\n' + md + '\nSummary:', out)
