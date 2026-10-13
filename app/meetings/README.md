@@ -50,24 +50,3 @@ that hosts it.
 ## Tests
 
 `python -m pytest app/meetings/tests` (Graph and Claude are mocked).
-
-## Record from the laptop (no Teams transcript needed)
-
-`record.py` records the meeting on your machine, transcribes it locally, and summarises it with Claude.
-Only the text goes to Claude; the audio stays in the folder.
-
-1. Once: `pip install -r app/meetings/requirements-record.txt`, and set `ANTHROPIC_API_KEY` in your environment (Windows: `setx ANTHROPIC_API_KEY "sk-ant-..."`, then open a new terminal).
-2. When the meeting starts, from the repository root:
-   `python -m app.meetings.record --title "Marionnaud weekly" --name Jamil --lang fr`
-3. Answer `y` once you have told the participants you are recording. Press Ctrl+C when the meeting ends.
-4. The folder `recordings/<date>_<title>/` gets `me.wav`, `others.wav`, `transcript.vtt` and `summary.md`.
-
-How the voices are separated: your microphone is labelled `--name`, and everything the laptop plays
-(the other participants) is labelled `--others` (default "Participants"). Use a headset, otherwise the
-microphone also picks up the speakers.
-
-- Windows and Linux capture the laptop sound directly. On macOS install a loopback device (BlackHole) first.
-- `--model` picks the Whisper size: `small` (default) is fine for one voice per line, `medium` is better
-  for French with accents but slower. The first run downloads the model.
-- `--from recordings/<folder>` redoes the transcript and summary without recording again.
-- `--no-summary` stops after the transcript.
