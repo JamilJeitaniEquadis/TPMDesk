@@ -4,16 +4,14 @@ setlocal
 cd /d "%~dp0"
 title Voice summary
 
-rem ---- 1. Python (the "python" Store shortcut does not count) ----
+rem ---- 1. Python 3.12 (the speech packages don't support newer versions yet) ----
 set "PY="
-for /f "delims=" %%i in ('py -3 -c "import sys;print(sys.executable)" 2^>nul') do set "PY=%%i"
-if defined PY goto :packages
-for /f "delims=" %%i in ('python -c "import sys;print(sys.executable)" 2^>nul') do set "PY=%%i"
+for /f "delims=" %%i in ('py -3.12 -c "import sys;print(sys.executable)" 2^>nul') do set "PY=%%i"
 if defined PY goto :packages
 set "PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
 if exist "%PY%" goto :packages
 
-echo Python is not installed. Installing Python 3.12 for your account only (no admin, about 2 minutes)...
+echo Python 3.12 is not installed. Installing Python 3.12 for your account only (no admin, about 2 minutes)...
 set "SETUP=%TEMP%\python-3.12.10-amd64.exe"
 curl -L -s -f -o "%SETUP%" https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe
 if errorlevel 1 (
@@ -29,7 +27,7 @@ if exist "%PY%" (
 :manual
 echo.
 echo Python could not be installed automatically.
-echo Install it from https://www.python.org/downloads/ (tick "Add python.exe to PATH"),
+echo Install Python 3.12 from https://www.python.org/downloads/release/python-31210/ (tick "Add python.exe to PATH"),
 echo or from the Company Portal / Software Center, then double-click this file again.
 goto :end
 

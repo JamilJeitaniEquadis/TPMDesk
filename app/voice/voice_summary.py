@@ -15,11 +15,14 @@ Voice summary tab).
 """
 import argparse
 import datetime as dt
+import importlib.util
 import json
 import os
 import queue
 import re
 import signal
+import site
+import subprocess
 import sys
 import threading
 import time
@@ -229,6 +232,24 @@ def to_markdown(s: dict, title: str, when: str) -> str:
     return '\n'.join(md)
 
 
+def ensure_packages(listening: bool):
+    """Installs what requirements.txt lists the first time, for the Python running this script."""
+    need = (['soundcard', 'faster_whisper'] if listening else []) + ['anthropic']
+    if all(importlib.util.find_spec(m) for m in need):
+        return
+    print(f'Installing the voice packages for Python {sys.version.split()[0]} (first time only, a few minutes)...')
+    req = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'requirements.txt')
+    in_venv = sys.prefix != sys.base_prefix
+    cmd = [sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', '-q', '-r', req]
+    if subprocess.run(cmd + ([] if in_venv else ['--user'])).returncode:
+        hint = (' This Python is too new for the speech packages: use Python 3.12 (the .bat installs it).'
+                if sys.version_info >= (3, 13) else ' Send the lines above to Claude.')
+        raise SystemExit('The packages could not be installed.' + hint)
+    if not in_venv:
+        site.addsitedir(site.getusersitepackages())         # --user folder created just now
+    importlib.invalidate_caches()
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--title', default='', help='what you are listening to (optional)')
@@ -242,6 +263,7 @@ def main(argv=None):
     ap.add_argument('--no-summary', action='store_true', help='only the transcript')
     a = ap.parse_args(argv)
 
+    ensure_packages(listening=not a.src)
     now = dt.datetime.now()
     if a.src:
         folder = a.src
