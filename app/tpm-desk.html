@@ -626,6 +626,8 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
           <p>Claude Code is what links the desk to your Claude account. Open <b>PowerShell</b> and run Anthropic&rsquo;s official
             installer (your account only, no admin):</p>
           <div class="cmd"><code>irm https://claude.ai/install.ps1 | iex</code><button class="btn ghost cpy" type="button">Copy</button></div>
+          <p>If it ends with <i>&ldquo;.local\bin is not in your PATH&rdquo;</i>, run this too, in the same PowerShell:</p>
+          <div class="cmd"><code>[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path','User') + ';' + "$env:USERPROFILE\.local\bin", 'User')</code><button class="btn ghost cpy" type="button">Copy</button></div>
           <p>Then open a <b>new</b> terminal and sign in once: type the command below, log in with your Claude account, then type <code>/exit</code>.</p>
           <div class="cmd"><code>claude</code><button class="btn ghost cpy" type="button">Copy</button></div>
           <p class="note">Official guide: <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noopener">code.claude.com/docs/en/setup</a>.</p></div></li>
@@ -647,6 +649,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
       <h2 class="vs-h">If something goes wrong</h2>
       <div class="scroll"><table class="vs-fix"><thead><tr><th>You see</th><th>Why</th><th>Do this</th></tr></thead><tbody>
         <tr><td>Claude is not linked: start the desk with Open desk.bat</td><td>The desk was opened by double-clicking <code>tpm-desk.html</code>, or the Claude link window was closed.</td><td>Open the desk with <b>Open desk.bat</b> (step 3).</td></tr>
+        <tr><td>claude : The term &lsquo;claude&rsquo; is not recognized</td><td>Claude Code is installed, but Windows doesn&rsquo;t know its folder yet.</td><td>Run the PATH command of step 2, close PowerShell and open a new one.</td></tr>
         <tr><td>Claude Code is not installed on this laptop</td><td>Step 2 not done.</td><td>Do step 2, then <b>Open desk.bat</b> again.</td></tr>
         <tr><td>Your Claude session expired &hellip; / Claude Code could not summarise &hellip; /login</td><td>Claude Code isn&rsquo;t signed in.</td><td>Open a terminal, type <code>claude</code>, log in, then type <code>/exit</code>.</td></tr>
         <tr><td>Python was not found; run without arguments to install from the Microsoft Store</td><td>An old <code>.bat</code>.</td><td>Download the folder again (step 1).</td></tr>
