@@ -1,3 +1,5 @@
 app/py/
 app/out/
 __pycache__/
+app/meetings/.env
+*.sqlite3

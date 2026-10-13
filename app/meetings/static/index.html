@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meeting Summary</title>
+<style>
+:root{--ink:#16202B;--soft:#56636F;--rule:#D5DBE1;--bg:#EEF2F4;--card:#F8FAFB}
+@media (prefers-color-scheme:dark){:root{--ink:#E7ECF1;--soft:#9AA7B3;--rule:#2E3A46;--bg:#0E151B;--card:#18212A}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:28px 16px 64px}
+h1{margin:0 0 4px;font-size:26px} .soft{color:var(--soft);font-size:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:18px 0}
+select,input{font:inherit;font-size:14px;padding:8px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);min-width:0}
+input{flex:1 1 220px} button{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--rule);border-radius:8px;padding:8px 12px;background:none;color:var(--soft);cursor:pointer}
+section{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:16px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Meeting Summary</h1>
+  <p class="soft" id="who">Checking your Microsoft session…</p>
+  <div class="row">
+    <label for="task" class="soft">Task</label><select id="task"></select>
+    <input id="newTitle" placeholder="New task title" aria-label="New task title"><button id="add">Add task</button>
+  </div>
+  <section><h2 id="title" style="margin:0 0 12px;font-size:18px"></h2><meeting-summary id="ms"></meeting-summary></section>
+</main>
+<script type="module">
+import './meeting-summary.js';
+const $ = s => document.querySelector(s);
+const me = await (await fetch('/auth/me')).json();
+$('#who').innerHTML = me.signedIn ? `Signed in as ${me.name.replace(/[<>&]/g, '')} · <a href="#" id="out">Sign out</a>`
+                                  : `<a href="/auth/login?next=/">Sign in with Microsoft</a> to read your Teams transcripts.`;
+if ($('#out')) $('#out').onclick = async e => { e.preventDefault(); await fetch('/auth/logout', {method: 'POST'}); location.reload(); };
+async function tasks(select) {
+  if (!me.signedIn) return;
+  const list = await (await fetch('/api/tasks')).json();
+  $('#task').innerHTML = list.map(t => `<option value="${t.id}">${t.title.replace(/[<>&]/g, '')}</option>`).join('');
+  if (select) $('#task').value = select;
+  pick();
+}
+function pick() { const o = $('#task').selectedOptions[0]; $('#title').textContent = o ? o.textContent : 'Add a task first';
+  if (o) $('#ms').setAttribute('task-id', o.value); }
+$('#task').onchange = pick;
+$('#add').onclick = async () => { const title = $('#newTitle').value.trim(); if (!title) return;
+  const t = await (await fetch('/api/tasks', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title})})).json();
+  $('#newTitle').value = ''; tasks(t.id); };
+tasks();
+</script>
+</body>
+</html>
