@@ -112,16 +112,21 @@ class Chunker:
             self.buf = []
 
 
-def listen(folder: str, model_size: str, language: str | None, with_mic: bool) -> str:
+def listen(folder: str, model_size: str, language: str | None, with_mic: bool, gpu: bool = False) -> str:
     """Records and transcribes until Enter or Ctrl+C. Returns the transcript path."""
     os.environ.setdefault('HF_HUB_DISABLE_SYMLINKS_WARNING', '1')   # Windows without Developer Mode: harmless
     os.environ.setdefault('HF_HUB_VERBOSITY', 'error')               # no "unauthenticated requests" notice
     warnings.filterwarnings('ignore', module='huggingface_hub')
     from faster_whisper import WhisperModel
     print(f'Loading Whisper "{model_size}" (the first run downloads it)...')
-    model = WhisperModel(model_size, device='auto', compute_type='int8')
+    # CPU by default: an NVIDIA card without the CUDA libraries (cublas64_12.dll...) makes 'auto' crash.
+    model = [WhisperModel(model_size, device='cuda' if gpu else 'cpu', compute_type='int8')]
     path = os.path.join(folder, 'transcript.txt')
     todo, stop = queue.Queue(), threading.Event()
+
+    def text_of(audio):
+        segs, _ = model[0].transcribe(audio, language=language, vad_filter=True)
+        return [(s.start, s.text.strip()) for s in segs if s.text.strip()]
 
     def worker():
         with open(path, 'a', encoding='utf-8') as f:
@@ -130,13 +135,23 @@ def listen(folder: str, model_size: str, language: str | None, with_mic: bool) -
                 if job is None:
                     return
                 audio, offset = job
-                segs, _ = model.transcribe(audio, language=language, vad_filter=True)
-                for s in segs:
-                    if s.text.strip():
-                        line = f'[{stamp(offset + s.start)}] {s.text.strip()}'
-                        print(line, flush=True)
-                        f.write(line + '\n')
-                        f.flush()
+                try:
+                    try:
+                        found = text_of(audio)
+                    except RuntimeError as e:
+                        if not gpu:
+                            raise
+                        print(f'\n[graphics card unavailable ({e}); switching to the processor]', flush=True)
+                        model[0] = WhisperModel(model_size, device='cpu', compute_type='int8')
+                        found = text_of(audio)
+                except Exception as e:                         # keep listening, lose only this piece
+                    print(f'\n[could not transcribe {stamp(offset)}-{stamp(offset + len(audio) / RATE)}: {e}]', flush=True)
+                    continue
+                for start, text in found:
+                    line = f'[{stamp(offset + start)}] {text}'
+                    print(line, flush=True)
+                    f.write(line + '\n')
+                    f.flush()
 
     w = threading.Thread(target=worker)
     w.start()
@@ -260,6 +275,7 @@ def main(argv=None):
     ap.add_argument('--model', default=os.environ.get('WHISPER_MODEL', 'small'),
                     help='Whisper size: tiny, base, small, medium, large-v3 (default small)')
     ap.add_argument('--mic', action='store_true', help='also record your microphone')
+    ap.add_argument('--gpu', action='store_true', help='use the NVIDIA card (needs the CUDA 12 libraries)')
     ap.add_argument('--out', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'recordings'),
                     help='parent folder (default: recordings next to this script)')
     ap.add_argument('--from', dest='src', help='existing folder: summarise its transcript again')
@@ -274,7 +290,7 @@ def main(argv=None):
         slug = re.sub(r'[^\w-]+', '-', a.title).strip('-')[:40]
         folder = os.path.join(a.out, now.strftime('%Y-%m-%d_%H%M') + (f'_{slug}' if slug else ''))
         os.makedirs(folder, exist_ok=True)
-        listen(folder, a.model, a.lang, a.mic)
+        listen(folder, a.model, a.lang, a.mic, a.gpu)
 
     path = os.path.join(folder, 'transcript.txt')
     text = open(path, encoding='utf-8').read() if os.path.exists(path) else ''

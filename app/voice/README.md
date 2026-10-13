@@ -27,6 +27,7 @@ open questions). Drop `transcript.txt` in the desk's Voice summary tab to summar
 
 - It follows the device you are listening on: plug in headphones mid-way and it keeps going.
 - `--mic` also records your microphone (use it when you speak too, e.g. in a call).
+- Whisper runs on the processor. `--gpu` uses an NVIDIA card instead, only if the CUDA 12 libraries are installed.
 - `--model medium` transcribes better (accents, French) but slower; `tiny` is the fastest.
   The first run downloads the model.
 - `--from recordings/<folder>` summarises a transcript again; `--no-summary` skips Claude.
