@@ -36,7 +36,7 @@ rem ---- 2. Packages (only the first time) ----
 "%PY%" -c "import soundcard, faster_whisper, anthropic" >nul 2>&1
 if not errorlevel 1 goto :key
 echo Installing the voice packages (first time only, a few minutes)...
-"%PY%" -m pip install --disable-pip-version-check --user -q -r requirements.txt
+"%PY%" -m pip install --disable-pip-version-check --no-warn-script-location --user -q -r requirements.txt
 if errorlevel 1 (
   echo.
   echo The packages could not be installed. Send the lines above to Claude.

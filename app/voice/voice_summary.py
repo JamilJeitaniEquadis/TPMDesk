@@ -114,6 +114,9 @@ class Chunker:
 
 def listen(folder: str, model_size: str, language: str | None, with_mic: bool) -> str:
     """Records and transcribes until Enter or Ctrl+C. Returns the transcript path."""
+    os.environ.setdefault('HF_HUB_DISABLE_SYMLINKS_WARNING', '1')   # Windows without Developer Mode: harmless
+    os.environ.setdefault('HF_HUB_VERBOSITY', 'error')               # no "unauthenticated requests" notice
+    warnings.filterwarnings('ignore', module='huggingface_hub')
     from faster_whisper import WhisperModel
     print(f'Loading Whisper "{model_size}" (the first run downloads it)...')
     model = WhisperModel(model_size, device='auto', compute_type='int8')
@@ -240,7 +243,7 @@ def ensure_packages(listening: bool):
     print(f'Installing the voice packages for Python {sys.version.split()[0]} (first time only, a few minutes)...')
     req = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'requirements.txt')
     in_venv = sys.prefix != sys.base_prefix
-    cmd = [sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', '-q', '-r', req]
+    cmd = [sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', '--no-warn-script-location', '-q', '-r', req]
     if subprocess.run(cmd + ([] if in_venv else ['--user'])).returncode:
         hint = (' This Python is too new for the speech packages: use Python 3.12 (the .bat installs it).'
                 if sys.version_info >= (3, 13) else ' Send the lines above to Claude.')
