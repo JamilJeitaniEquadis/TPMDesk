@@ -268,6 +268,33 @@ def ensure_packages(listening: bool):
     importlib.invalidate_caches()
 
 
+DESK = 'https://claude.ai/artifact/2BWgv38SCYPQkUujebuvQy'
+
+
+def copy_to_clipboard(text: str) -> bool:
+    try:
+        if sys.platform == 'win32':
+            # clip.exe reads UTF-16 when the text starts with a BOM: keeps the accents
+            subprocess.run(['clip'], input=('\ufeff' + text).encode('utf-16-le'), check=True)
+        elif sys.platform == 'darwin':
+            subprocess.run(['pbcopy'], input=text.encode('utf-8'), check=True)
+        else:
+            subprocess.run(['xclip', '-selection', 'clipboard'], input=text.encode('utf-8'), check=True)
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+
+def to_desk(text: str):
+    """No API key: the desk opened in Claude summarises it, with your Claude account."""
+    import webbrowser
+    copied = copy_to_clipboard(text)
+    webbrowser.open(DESK)
+    print('\nThe desk is opening in your browser (sign in to claude.ai if asked).')
+    print('Go to Voice summary > "Or paste the transcript", press Ctrl+V, then Summarize.'
+          if copied else 'Open transcript.txt, copy it, paste it in Voice summary, then Summarize.')
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--title', default='', help='what you are listening to (optional)')
@@ -298,6 +325,9 @@ def main(argv=None):
         raise SystemExit('Nothing was heard, so there is nothing to summarise.')
     print('\nTranscript:', path)
     if a.no_summary:
+        return
+    if not os.environ.get('ANTHROPIC_API_KEY'):
+        to_desk(text)
         return
     print('Summarising with Claude...')
     md = to_markdown(summarise(text, a.title), a.title, now.strftime('%d/%m/%Y %H:%M'))

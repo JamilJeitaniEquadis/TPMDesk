@@ -10,7 +10,6 @@ Double-click **Voice summary.bat**. The first time it sets everything up by itse
 
 1. installs Python 3.12 silently for your account only if it is missing (python.org installer, no admin rights needed);
 2. installs the voice packages (a few minutes);
-3. asks for your Anthropic API key and saves it (Enter skips it: you then only get the transcript).
 
 If Python can't be installed automatically (blocked by IT), install it from python.org or the
 Company Portal, tick "Add python.exe to PATH", and double-click the file again.
@@ -21,9 +20,11 @@ Double-click **Voice summary.bat**, or from this folder:
 
     python voice_summary.py --title "Supplier call" --lang fr
 
-Play what you want to hear. Press **Enter** in the window when you are done. You get
-`recordings/<date>_<title>/transcript.txt` and `summary.md` (overview, key points, action items,
-open questions). Drop `transcript.txt` in the desk's Voice summary tab to summarise it there instead.
+Play what you want to hear. Press **Enter** in the window when you are done. The transcript is saved
+in `recordings/<date>_<title>/transcript.txt`, copied to the clipboard, and the desk opens on claude.ai:
+in Voice summary, paste it (Ctrl+V) and press Summarize. Claude runs with your claude.ai account, no API key.
+
+With an `ANTHROPIC_API_KEY` set, the script summarises by itself instead and writes `summary.md`.
 
 - It follows the device you are listening on: plug in headphones mid-way and it keeps going.
 - `--mic` also records your microphone (use it when you speak too, e.g. in a call).

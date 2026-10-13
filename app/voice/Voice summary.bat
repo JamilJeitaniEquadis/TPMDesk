@@ -43,27 +43,13 @@ if errorlevel 1 (
   goto :end
 )
 
-rem ---- 3. Anthropic API key (only the first time) ----
+rem ---- 3. Listen. The summary is made in the desk on claude.ai (no API key needed) ----
 :key
-set "NOSUM="
-if defined ANTHROPIC_API_KEY goto :run
-echo.
-echo Paste your Anthropic API key (console.anthropic.com, starts with sk-ant-),
-set /p "KEY=or press Enter to only get the transcript: "
-if not defined KEY (
-  set "NOSUM=--no-summary"
-  goto :run
-)
-setx ANTHROPIC_API_KEY "%KEY%" >nul
-set "ANTHROPIC_API_KEY=%KEY%"
-echo Key saved for next time.
-
-rem ---- 4. Listen ----
 :run
 echo.
 set "TITLE="
 set /p "TITLE=What are you listening to (Enter to skip)? "
-"%PY%" voice_summary.py --title "%TITLE%" %NOSUM%
+"%PY%" voice_summary.py --title "%TITLE%"
 
 :end
 echo.

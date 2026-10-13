@@ -555,8 +555,8 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         script, then Claude writes the overview, the decisions, the action items and the open questions.</p>
 
       <ol class="msteps">
-        <li><b>1</b><span>On your laptop, double-click <b>Voice summary.bat</b> (folder <code>app/voice</code> of TPMDesk) and play what you want to hear. The first time it installs what it needs. Press <b>Enter</b> when done: it writes <code>transcript.txt</code> and <code>summary.md</code>.</span></li>
-        <li><b>2</b><span>To summarise it here instead, drop <code>transcript.txt</code> below, or paste any transcript.</span></li>
+        <li><b>1</b><span>On your laptop, double-click <b>Voice summary.bat</b> (folder <code>app/voice</code> of TPMDesk) and play what you want to hear. The first time it installs what it needs. Press <b>Enter</b> when done.</span></li>
+        <li><b>2</b><span>It opens this desk and copies the transcript: click in <b>Or paste the transcript</b> below and press <b>Ctrl+V</b> (or drop <code>transcript.txt</code>).</span></li>
         <li><b>3</b><span>Press <b>Summarize</b>. The first time, Claude asks you to allow it.</span></li>
       </ol>
 
@@ -572,7 +572,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
           <span class="slotnote">Added to the copy and the download</span>
         </div>
       </div>
-      <details class="drawer mpaste"><summary>Or paste the transcript</summary>
+      <details class="drawer mpaste" open><summary>Or paste the transcript</summary>
         <textarea id="mPaste" rows="7" placeholder="[00:00:01] what was said…"></textarea>
       </details>
 
@@ -2021,7 +2021,7 @@ ${FORME}`;
   $('#mGo').onclick=async()=>{
     const t=source(); if(!t) return;
     const sample=await capacite('sample');
-    if(!sample){ rt('ko','Claude is only available in the published desk opened in Claude.'); return; }
+    if(!sample){ rt('ko','This is a local copy of the desk: Claude only works in the desk opened from claude.ai (claude.ai/artifact/2BWgv38SCYPQkUujebuvQy). Paste the transcript there.'); return; }
     ctl=new AbortController(); $('#mGo').disabled=true; $('#mStop').classList.remove('hide');
     const t0=Date.now(); let etape='Thinking'; const tic=setInterval(()=>rt('load', etape+'… '+Math.round((Date.now()-t0)/1000)+' s'),1000);
     try{
