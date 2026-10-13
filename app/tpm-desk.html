@@ -78,7 +78,7 @@ body{
 [aria-expanded="true"] .chev{transform:rotate(90deg)}
 .fold[hidden]{display:none}
 /* les enfants sont visiblement en retrait sous le parent */
-#fold-mod{margin:0 0 4px 6px; padding-left:8px; border-left:1px solid rgba(88,234,157,.30)}
+#fold-mod,#fold-voice{margin:0 0 4px 6px; padding-left:8px; border-left:1px solid rgba(88,234,157,.30)}
 #fold-pipe,#fold-xml,#fold-ref{padding-left:8px; border-left:1px solid rgba(255,255,255,.14); margin-left:10px}
 #fold-mod > .grp-head:first-child{padding-top:6px}
 .mod-head[aria-expanded="false"]{margin-bottom:2px; border-left-color:rgba(88,234,157,.35)}
@@ -314,11 +314,11 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
   .grp-head{display:none}
   .mod-head{justify-content:flex-start; gap:8px; margin:0 0 8px; padding:8px 11px; font-size:13px}
   .fold{display:contents!important}
-  #fold-mod,#fold-pipe,#fold-xml,#fold-ref{padding:0; border:0; margin:0}
+  #fold-mod,#fold-voice,#fold-pipe,#fold-xml,#fold-ref{padding:0; border:0; margin:0}
   .rail nav{display:block}
-  #fold-mod{display:flex!important; gap:4px; overflow-x:auto; scrollbar-width:none; min-width:0}
+  #fold-mod,#fold-voice{display:flex!important; gap:4px; overflow-x:auto; scrollbar-width:none; min-width:0}
   .rail nav{min-width:0}
-  #fold-mod::-webkit-scrollbar{display:none}
+  #fold-mod::-webkit-scrollbar,#fold-voice::-webkit-scrollbar{display:none}
   .rail button{white-space:nowrap; padding:7px 12px; font-size:13.5px; border:1px solid rgba(255,255,255,.14)}
   .railfoot{display:none}
   main{padding:22px 16px 64px}
@@ -402,6 +402,22 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
 .mai input{margin-top:4px; width:16px; height:16px; flex:none; accent-color:var(--ok)}
 .mai li.done span{text-decoration:line-through; color:var(--ink-soft)}
 .mai em{font-style:normal; font-size:13px; color:var(--ink-soft)}
+
+/* --- Voice summary setup --- */
+.vs-who p{margin:0 0 8px} .vs-who p:last-child{margin:0}
+.vsteps{list-style:none; margin:18px 0; padding:0}
+.vsteps > li{display:flex; gap:14px; align-items:flex-start}
+.vsteps > li > b{display:inline-flex; flex:none; width:26px; height:26px; border-radius:50%; align-items:center; justify-content:center; background:var(--primary); color:#fff; font-size:13px; margin-top:2px}
+.vsteps > li > div{min-width:0; flex:1}
+.vsteps h3{margin:2px 0 6px; font-size:16px}
+.vsteps p,.vsteps ul{margin:0 0 8px; font-size:14.5px} .vsteps ul{padding-left:18px}
+.vsteps code,.vs-fix code{overflow-wrap:anywhere}
+.cmd{display:flex; gap:8px; align-items:center; background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:6px 6px 6px 12px; margin:0 0 10px}
+.cmd code{flex:1; min-width:0; font-size:13.5px; background:none; border:0; padding:0}
+.cmd .cpy{flex:none; padding:5px 12px; font-size:13px}
+.vs-h{font-size:18px; margin:26px 0 4px}
+.vs-fix td{vertical-align:top}
+.vs-fix td:first-child{font-family:ui-monospace,Consolas,monospace; font-size:13px}
 </style>
 </head>
 <body>
@@ -430,7 +446,13 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         </div>
       </div>
       <button class="mod-head solo" data-v="sso">SSO</button>
-      <button class="mod-head solo" data-v="meet">Voice summary</button>
+      <button class="mod-head" data-fold="voice" aria-expanded="true" title="Collapse or expand this module">
+        Voice summary<span class="chev" aria-hidden="true">&rarr;</span>
+      </button>
+      <div class="fold" id="fold-voice">
+        <button data-v="meet">Summarize</button>
+        <button data-v="vsetup">Setup</button>
+      </div>
     </nav>
     <div class="railfoot">
       Files stay in your browser. Claude reads only what its tools pull from them.<br>
@@ -555,7 +577,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         script, then Claude writes the overview, the decisions, the action items and the open questions.</p>
 
       <ol class="msteps">
-        <li><b>1</b><span>On your laptop, double-click <b>Voice summary.bat</b> (folder <code>app/voice</code> of TPMDesk) and play what you want to hear. The first time it installs what it needs. Press <b>Enter</b> when done.</span></li>
+        <li><b>1</b><span>First time on this laptop? Do the <a href="#" data-goto="vsetup">Setup</a>. Then double-click <b>Voice summary.bat</b> (folder <code>app/voice</code> of TPMDesk) and play what you want to hear. The first time it installs what it needs. Press <b>Enter</b> when done.</span></li>
         <li><b>2</b><span>It opens this desk and copies the transcript: click in <b>Or paste the transcript</b> below and press <b>Ctrl+V</b> (or drop <code>transcript.txt</code>).</span></li>
         <li><b>3</b><span>Press <b>Summarize</b>. The first time, Claude asks you to allow it.</span></li>
       </ol>
@@ -592,6 +614,75 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
     </section>
 
     <!-- ============ SSO ============ -->
+    <section class="view" id="v-vsetup">
+      <h1>Voice summary setup</h1>
+      <p class="lede">Do this once on each laptop, yours or a colleague&rsquo;s. About 15 minutes, no admin rights.
+        After that, Voice summary is one double-click.</p>
+
+      <div class="card vs-who">
+        <p><b>Using only the desk</b> (Excel conversions, SSO, pasting a transcript): nothing to install. Open the desk from
+          claude.ai at <a href="https://claude.ai/artifact/2BWgv38SCYPQkUujebuvQy" target="_blank" rel="noopener">claude.ai/artifact/2BWgv38SCYPQkUujebuvQy</a>.
+          Colleagues can open that link only after you share the desk with them (Share menu at the top of the published desk).</p>
+        <p><b>Using the Voice summary script</b> (transcribing what the laptop plays): follow the 5 steps below.</p>
+      </div>
+
+      <ol class="vsteps">
+        <li class="card"><b>1</b><div><h3>Open the desk from claude.ai, not from the folder</h3>
+          <p>The <code>tpm-desk.html</code> file in the downloaded folder is a copy: its Python tools work, but it can&rsquo;t
+            reach Claude. Bookmark the claude.ai link in Edge and sign in to Claude there.</p></div></li>
+        <li class="card"><b>2</b><div><h3>Get the voice folder</h3>
+          <p>Download the TPMDesk zip (branch <code>claude/step-2-real-interaction-ut2t6k</code>) and unzip it anywhere, for example on the
+            Desktop. The folder <code>app\voice</code> must keep these three files together:
+            <code>Voice summary.bat</code>, <code>voice_summary.py</code>, <code>requirements.txt</code>.</p></div></li>
+        <li class="card"><b>3</b><div><h3>Double-click <code>Voice summary.bat</code> once</h3>
+          <p>The first run, about 5 minutes, sets up by itself:</p>
+          <ul><li>Python 3.12, installed silently for your account only, from python.org;</li>
+            <li>the voice packages;</li>
+            <li>the speech model (about 460 MB), downloaded when it first says <i>Loading Whisper</i>.</li></ul>
+          <p>Warnings about <i>PATH</i> or <i>symlinks</i> are harmless.</p></div></li>
+        <li class="card"><b>4</b><div><h3>Install Claude Code and sign in</h3>
+          <p>This writes the summary on the laptop with your Claude account, without an API key. Open <b>PowerShell</b> and run
+            Anthropic&rsquo;s official installer (your account only, no admin):</p>
+          <div class="cmd"><code>irm https://claude.ai/install.ps1 | iex</code><button class="btn ghost cpy" type="button">Copy</button></div>
+          <p>Then open a <b>new</b> terminal and sign in once: type the command below, log in with your Claude account, then type <code>/exit</code>.</p>
+          <div class="cmd"><code>claude</code><button class="btn ghost cpy" type="button">Copy</button></div>
+          <p class="note">Official guide: <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noopener">code.claude.com/docs/en/setup</a>.
+            Without Claude Code, the script still works: it copies the transcript and opens the desk, where you paste it into Voice summary.</p></div></li>
+        <li class="card"><b>5</b><div><h3>Test it</h3>
+          <p>Double-click <code>Voice summary.bat</code>, play a YouTube video for one minute, then press <b>Enter</b>.</p>
+          <ul><li>The line <i>[listening to: &hellip;]</i> must name the speakers or headset you actually hear.</li>
+            <li>Text lines appear about every 30 seconds.</li>
+            <li>At the end, the summary is shown and saved in <code>app\voice\recordings\&lt;date&gt;\summary.md</code>.</li></ul></div></li>
+      </ol>
+
+      <h2 class="vs-h">If something goes wrong</h2>
+      <div class="scroll"><table class="vs-fix"><thead><tr><th>You see</th><th>Why</th><th>Do this</th></tr></thead><tbody>
+        <tr><td>Python was not found; run without arguments to install from the Microsoft Store</td><td>An old <code>Voice summary.bat</code>.</td><td>Download the folder again (step 2).</td></tr>
+        <tr><td>The download from python.org failed, or the packages could not be installed</td><td>The company network or IT blocks it.</td><td>Ask IT for Python 3.12 (Company Portal), then double-click again.</td></tr>
+        <tr><td>No module named &lsquo;faster_whisper&rsquo;</td><td>Packages missing, or a Python newer than 3.12.</td><td>Take the new folder: the .bat uses Python 3.12 and installs the packages.</td></tr>
+        <tr><td>cublas64_12.dll is not found</td><td>An old script tried the NVIDIA card.</td><td>Take the new <code>voice_summary.py</code>: it uses the processor.</td></tr>
+        <tr><td>Nothing was heard</td><td>The sound played on another device than the one listed in <i>[listening to: &hellip;]</i>.</td><td>Set that headset or speaker as the Windows default output (sound icon in the taskbar), then start again.</td></tr>
+        <tr><td>Claude Code could not summarise &hellip; /login</td><td>Claude Code isn&rsquo;t signed in.</td><td>Open a terminal, type <code>claude</code>, log in, then type <code>/exit</code>.</td></tr>
+        <tr><td>This is a local copy of the desk</td><td>The desk was opened from the folder.</td><td>Open it from claude.ai (step 1).</td></tr>
+      </tbody></table></div>
+
+      <details class="drawer"><summary>Options for the script</summary>
+        <p>From a terminal in <code>app\voice</code>: <code>py -3.12 voice_summary.py</code> followed by any of these:</p>
+        <ul>
+          <li><code>--title "Supplier call"</code>: a name for the folder and the summary.</li>
+          <li><code>--mic</code>: also records your microphone, when you speak too.</li>
+          <li><code>--lang fr</code>: fixes the language instead of detecting it.</li>
+          <li><code>--model medium</code>: better recognition (accents, French) but slower. <code>tiny</code> is the fastest.</li>
+          <li><code>--from recordings\&lt;folder&gt;</code>: summarises an earlier transcript again.</li>
+          <li><code>--gpu</code>: uses an NVIDIA card, only if the CUDA 12 libraries are installed.</li>
+        </ul>
+      </details>
+      <details class="drawer"><summary>Privacy</summary>
+        <p>The audio stays on the laptop: Whisper turns it into text locally. Only the text goes to Claude, under your own Claude account.
+          The <code>recordings</code> folder is never pushed to the repository. When you transcribe a call, tell the other people.</p>
+      </details>
+    </section>
+
     <section class="view" id="v-sso">
       <div class="ssohead">
         <div>
@@ -975,6 +1066,14 @@ document.querySelectorAll('[data-fold]').forEach(t=>{
   try{ const v=localStorage.getItem('pm-fold-'+cle); if(v!==null) etat=(v==='1'); }catch(e){}
   plier(cle,etat);
   t.onclick=()=>plier(cle, t.getAttribute('aria-expanded')!=='true');
+});
+
+/* Voice summary setup : boutons Copier */
+document.querySelectorAll('#v-vsetup .cpy').forEach(b=>b.onclick=async()=>{
+  const t=b.previousElementSibling.textContent;
+  try{ await navigator.clipboard.writeText(t); b.textContent='Copied'; }
+  catch(e){ const r=document.createRange(); r.selectNodeContents(b.previousElementSibling); const s=getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent='Press Ctrl+C'; }
+  setTimeout(()=>b.textContent='Copy',1800);
 });
 $('#theme').onclick = () => {
   const cur = document.documentElement.getAttribute('data-theme');
