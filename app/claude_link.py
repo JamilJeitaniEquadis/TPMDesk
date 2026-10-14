@@ -147,7 +147,9 @@ def latest_folder() -> str | None:
     if not os.path.isdir(RECORDINGS):
         return None
     dirs = [os.path.join(RECORDINGS, d) for d in os.listdir(RECORDINGS) if os.path.isdir(os.path.join(RECORDINGS, d))]
-    return max(dirs, key=os.path.getmtime) if dirs else None
+    def newest(d):                                         # a rewritten summary.json doesn't touch the folder's date
+        return max([os.path.getmtime(d)] + [os.path.getmtime(os.path.join(d, f)) for f in os.listdir(d)])
+    return max(dirs, key=newest) if dirs else None
 
 
 def voice_status() -> dict:

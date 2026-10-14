@@ -432,6 +432,32 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
 .vsrechead{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:4px}
 .vsrechead h3{margin:0; font-size:15px}
 .vsrec .actions{margin:8px 0 4px; flex-wrap:wrap}
+
+/* --- Voice summary : 1 quoi, 2 enregistrer, 3 résultat --- */
+.vstep{padding:18px 20px}
+.vstep h2{display:flex; align-items:center; gap:10px; margin:0 0 12px; font-size:17px}
+.vstep h2 > b{display:inline-flex; flex:none; width:26px; height:26px; border-radius:50%; align-items:center; justify-content:center; background:var(--primary); color:#fff; font-size:13px}
+.vstype{flex-wrap:wrap}
+#vsClientBox{margin-top:14px; padding-top:14px; border-top:1px solid var(--rule)}
+#vsClientBox .note{margin:0}
+.vsrecrow{display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px}
+.vsbig{font-size:16px; padding:12px 22px; min-width:190px}
+.vsbig.rec{background:var(--stop,#C0392B); border-color:var(--stop,#C0392B)}
+.vsstate{font-size:14px; color:var(--ink-soft); display:inline-flex; align-items:center; gap:8px}
+.vsstate::before{content:''; width:9px; height:9px; border-radius:50%; background:var(--rule)}
+.vsstate[data-s="ok"]::before{background:var(--ok)} .vsstate[data-s="warn"]::before{background:var(--warn)}
+.vsstate[data-s="rec"]::before{background:var(--stop,#C0392B); animation:vspulse 1.2s ease-in-out infinite}
+@keyframes vspulse{50%{opacity:.25}}
+#vsRecNote:empty{display:none}
+.vslinks{display:flex; flex-wrap:wrap; gap:4px 18px; margin:8px 0 0}
+.vslinks:not(:has(button:not([hidden]))){display:none}
+.linkbtn{font:inherit; font-size:14px; background:none; border:0; padding:0; color:var(--primary); text-decoration:underline; cursor:pointer}
+.vsalt{margin-top:16px}
+.vsalt .slot{margin:4px 0 8px}
+.vsalt textarea{width:100%; box-sizing:border-box; font:inherit; font-size:14px; padding:8px 10px; border-radius:8px; border:1px solid var(--rule); background:var(--paper); color:var(--ink); margin-bottom:8px}
+.mcard .mhead h2{margin:0}
+.mcard #mMeta{display:block; margin:4px 0 0}
+.vsfoot{margin-top:4px}
 </style>
 </head>
 <body>
@@ -582,71 +608,62 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
     <!-- ============ MEETING SUMMARY ============ -->
     <section class="view" id="v-meet">
       <h1>Voice summary</h1>
-      <p class="lede">Whatever your laptop plays (a meeting, a call, a video) becomes text with the Voice summary script,
-        then Claude writes the summary in French and English. For a client meeting, it also writes the Equadis meeting
-        report (PV) as a Word file, like the team&rsquo;s reports.</p>
+      <p class="lede">Record what your laptop plays and get the summary in French and English.
+        Client meetings also get the Equadis meeting report (PV) in Word.</p>
 
-      <ol class="msteps">
-        <li><b>1</b><span>First time on this laptop? Do the <a href="#" data-goto="vsetup">Setup</a>, then open the desk with <b>Open desk.bat</b>.</span></li>
-        <li><b>2</b><span>Fill in the meeting, press <b>Start listening</b> and let the meeting play. A small window shows the text as it comes.</span></li>
-        <li><b>3</b><span>At the end press <b>Stop &amp; summarize</b>: the summary appears below in French and English, and the Word report opens.</span></li>
-      </ol>
-
-      <div class="card vsmeta">
-        <h3>The meeting</h3>
-        <div class="vsgrid">
-          <label class="f"><span>Type</span><select id="vsKind">
-            <option value="auto">Let Claude decide</option>
-            <option value="client">Client meeting: Equadis report (PV)</option>
-            <option value="internal">Internal meeting</option>
-            <option value="other">Other: video, training, call</option></select></label>
-          <label class="f"><span>Client (a name makes it a client meeting)</span><input type="text" id="vsClient" placeholder="MyOrigines" autocomplete="off"></label>
-          <label class="f"><span>Project</span><input type="text" id="vsProj" placeholder="MyOrigines PIM" autocomplete="off"></label>
-          <label class="f"><span>Written by</span><input type="text" id="vsAuthor" placeholder="Your name" autocomplete="name"></label>
-          <label class="f"><span>Date</span><input type="date" id="vsDate"></label>
-          <label class="f"><span>Time / duration</span><input type="text" id="vsTime" placeholder="10h – 11h" autocomplete="off"></label>
+      <div class="card vstep">
+        <h2><b>1</b>What are you listening to?</h2>
+        <div class="seg vstype" id="vsType" role="radiogroup" aria-label="What are you listening to">
+          <button type="button" role="radio" data-k="client" aria-pressed="false" aria-checked="false">Client meeting</button>
+          <button type="button" role="radio" data-k="internal" aria-pressed="true" aria-checked="true">Internal meeting</button>
+          <button type="button" role="radio" data-k="other" aria-pressed="false" aria-checked="false">Other: video, call…</button>
         </div>
-        <p class="note">Only the name, project and date you type here go in the report header; Claude fills the rest from what was said.</p>
+        <div id="vsClientBox" hidden>
+          <div class="vsgrid">
+            <label class="f"><span>Client *</span><input type="text" id="vsClient" placeholder="MyOrigines" autocomplete="off" required></label>
+            <label class="f"><span>Project</span><input type="text" id="vsProj" placeholder="MyOrigines PIM" autocomplete="off"></label>
+            <label class="f"><span>Written by</span><input type="text" id="vsAuthor" placeholder="Your name" autocomplete="name"></label>
+            <label class="f"><span>Date</span><input type="date" id="vsDate"></label>
+          </div>
+          <p class="note">These go in the header of the Word report. Claude fills in the rest from what is said.</p>
+        </div>
       </div>
 
-      <div class="card vsrec" id="vsRec">
-        <div class="vsrechead"><h3>Record from this laptop</h3><span class="pill" id="vsState">checking…</span></div>
-        <div class="actions">
-          <button class="btn" id="vsStart" disabled>Start listening</button>
-          <button class="btn" id="vsStop" disabled>Stop &amp; summarize</button>
-          <button class="btn ghost" id="vsOpenLast" disabled>Open last report</button>
-          <button class="btn ghost" id="vsOpenDir" disabled>Open recordings folder</button>
+      <div class="card vstep" id="vsRec">
+        <h2><b>2</b>Record</h2>
+        <div class="vsrecrow">
+          <button class="btn vsbig" id="vsRecBtn" disabled>Start listening</button>
+          <span class="vsstate" id="vsState" data-s="">Checking the link…</span>
         </div>
         <p class="note" id="vsRecNote"></p>
+        <p class="vslinks"><button class="linkbtn" id="vsOpenDir" hidden>Open recordings folder</button><button class="linkbtn" id="vsOpenLast" hidden>Open last Word report</button></p>
+
+        <details class="drawer vsalt" id="vsAlt"><summary>Already have a transcript?</summary>
+          <label class="slot" id="slotM" tabindex="0">
+            <input type="file" id="fileM" accept=".vtt,.docx,.txt,text/vtt,text/plain">
+            <em>Transcript</em><b id="nomM">Drop transcript.txt (or .vtt, .docx) here</b>
+            <span class="slotnote" id="natM">Read in this page, nothing is uploaded.</span>
+          </label>
+          <textarea id="mPaste" rows="5" placeholder="…or paste it here"></textarea>
+          <div class="runtime" id="mRt"><span class="dot" aria-hidden="true"></span><span id="mRtTxt">Drop or paste a transcript.</span></div>
+          <div class="actions">
+            <button class="btn" id="mGo" disabled>Summarize</button>
+            <button class="btn ghost hide" id="mStop">Stop</button>
+          </div>
+        </details>
       </div>
 
-      <h2 class="vs-h">Or summarise a transcript</h2>
-      <div class="slots mslots">
-        <label class="slot" id="slotM" tabindex="0">
-          <input type="file" id="fileM" accept=".vtt,.docx,.txt,text/vtt,text/plain">
-          <em>Transcript</em><b id="nomM">Drop transcript.txt (or .vtt, .docx) here</b>
-          <span class="slotnote" id="natM">Nothing is uploaded anywhere: the file is read in this page.</span>
-        </label>
-      </div>
-      <details class="drawer mpaste" open><summary>Or paste the transcript</summary>
-        <textarea id="mPaste" rows="7" placeholder="[00:00:01] what was said…"></textarea>
-      </details>
-
-
-      <div class="runtime" id="mRt"><span class="dot" aria-hidden="true"></span><span id="mRtTxt">Drop a transcript to start.</span></div>
-      <div class="actions">
-        <button class="btn" id="mGo" disabled>Summarize</button>
-        <button class="btn ghost hide" id="mStop">Stop</button>
-      </div>
-
-      <article class="mcard hide" id="mCard" aria-live="polite">
-        <div class="mhead"><div><h2 id="mTitle"></h2><span class="note" id="mMeta"></span></div>
+      <article class="card vstep mcard hide" id="mCard" aria-live="polite">
+        <div class="mhead"><h2><b>3</b><span id="mTitle"></span></h2>
           <div class="seg small" id="mLang" role="group" aria-label="Language"><button type="button" data-l="fr" aria-pressed="true">Français</button><button type="button" data-l="en" aria-pressed="false">English</button></div></div>
+        <span class="note" id="mMeta"></span>
         <div class="mbtns"><button class="btn" id="mDocx">Word report (.docx)</button><button class="btn ghost" id="mCopy">Copy</button><button class="btn ghost" id="mMail">Email</button><button class="btn ghost" id="mDl">Download (.md)</button></div>
         <p id="mObj"></p><p id="mOver"></p>
         <div id="mPts"></div><div id="mDec"></div><div id="mAct"></div><div id="mQ"></div><div id="mNext"></div>
         <p class="note" id="mOut"></p>
       </article>
+
+      <p class="note vsfoot">First time on this laptop? See <a href="#" data-goto="vsetup">Setup</a>.</p>
     </section>
 
     <!-- ============ SSO ============ -->
@@ -2180,14 +2197,20 @@ majFichiers();
   $('#vsDate').value=iso(new Date());
   try{ $('#vsAuthor').value=localStorage.getItem('pm-vs-author')||''; }catch(e){}
   $('#vsAuthor').addEventListener('change',()=>{ try{ localStorage.setItem('pm-vs-author',$('#vsAuthor').value.trim()); }catch(e){} });
-  $('#vsClient').addEventListener('input',()=>{ if($('#vsClient').value.trim()) $('#vsKind').value='client'; });
+  /* 1 · quoi : le type décide de tout le reste (champs client, rapport Word) */
+  let kind='internal';
+  document.querySelectorAll('#vsType button').forEach(b=>b.onclick=()=>{ kind=b.dataset.k;
+    document.querySelectorAll('#vsType button').forEach(x=>{ x.setAttribute('aria-pressed', x===b); x.setAttribute('aria-checked', x===b); });
+    $('#vsClientBox').hidden = kind!=='client'; if(kind==='client') $('#vsClient').focus(); });
+  const clientManquant=()=>{ if(kind!=='client' || $('#vsClient').value.trim()) return false;
+    $('#vsClient').focus(); $('#vsClient').closest('.f').classList.add('miss'); return true; };
+  $('#vsClient').addEventListener('input',()=>$('#vsClient').closest('.f').classList.remove('miss'));
   function meta(t){
-    const k=$('#vsKind').value, d=$('#vsDate').value;
-    let time=$('#vsTime').value.trim();
-    const s=[...t.matchAll(/^\[(\d+):(\d\d):(\d\d)\]/gm)].pop();
-    if(!time && s) time=Math.max(1,Math.round(+s[1]*60+ +s[2]+ +s[3]/60))+' min';
-    return {kind:k==='auto'?null:k, client:$('#vsClient').value.trim(), project:$('#vsProj').value.trim(),
-            author:$('#vsAuthor').value.trim(), date:d?d.split('-').reverse().join('/'):'', time, subject:''};
+    const d=$('#vsDate').value, c=kind==='client';
+    const s=[...(t||'').matchAll(/^\[(\d+):(\d\d):(\d\d)\]/gm)].pop();
+    const time=s ? Math.max(1,Math.round(+s[1]*60+ +s[2]+ +s[3]/60))+' min' : '';
+    return {kind, client:c?$('#vsClient').value.trim():'', project:c?$('#vsProj').value.trim():'',
+            author:c?$('#vsAuthor').value.trim():'', date:d?d.split('-').reverse().join('/'):'', time, subject:''};
   }
   const MSG={not_granted:'Claude was not allowed: press Summarize again and allow it.', rate_limited:'Claude is busy: wait a minute, then try again.',
     prompt_too_large:'This transcript part is too long: paste a shorter part.', invalid_json:'Claude answered in an unexpected form: try again.',
@@ -2198,6 +2221,7 @@ majFichiers();
   $('#mStop').onclick=()=>ctl&&ctl.abort();
   $('#mGo').onclick=async()=>{
     const t=source(); if(!t) return;
+    if(clientManquant()){ rt('ko','Type the client’s name in step 1.'); return; }
     const sample=await capacite('sample');
     if(!sample){ rt('ko',SANS_CLAUDE); return; }
     ctl=new AbortController(); $('#mGo').disabled=true; $('#mStop').classList.remove('hide');
@@ -2230,6 +2254,7 @@ majFichiers();
   function dessiner(){
     const d=res[lg], t=L[lg];
     $('#mCard').classList.remove('hide'); $('#mTitle').textContent=titreDe(lg);
+    $('#mDocx').hidden = res.kind!=='client';
     $('#mMeta').textContent=[t.kinds[res.kind], res.project, mres.date, mres.time].filter(Boolean).join(' · ');
     const o=$('#mObj'); o.innerHTML=''; if(d.objective){ o.appendChild(el('b',null,t.obj+' : ')); o.append(d.objective); }
     $('#mOver').textContent=res.kind==='client'?'':d.overview;
@@ -2271,49 +2296,54 @@ majFichiers();
     const r=await fetch(LIEN+chemin, corps===undefined ? {headers:{'X-TPM-Desk':'1'}}
       : {method:'POST', headers:{'Content-Type':'application/json','X-TPM-Desk':'1'}, body:JSON.stringify(corps)});
     const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.message||'The Claude link refused.'); return d; };
-  let suivi=null, avant=null, enCours=false, arrete=false;
-  const etat=(txt,cls)=>{ const s=$('#vsState'); s.textContent=txt; s.className='pill '+(cls||''); };
-  const boutons=(on,run)=>{ $('#vsStart').disabled=!on||run; $('#vsStop').disabled=!on||!run||arrete; $('#vsOpenLast').disabled=!on; $('#vsOpenDir').disabled=!on; };
+  let suivi=null, enCours=false, arrete=false;
+  const etat=(txt,s)=>{ const e=$('#vsState'); e.textContent=txt; e.dataset.s=s||''; };
   const note=t=>$('#vsRecNote').textContent=t;
+  /* un seul bouton : Start listening -> Stop & summarize -> (attente) */
+  function bouton(mode){
+    const b=$('#vsRecBtn'); b.disabled = mode==='off' || mode==='wait';
+    b.textContent = mode==='rec' ? 'Stop & summarize' : mode==='wait' ? 'Summarizing…' : 'Start listening';
+    b.classList.toggle('rec', mode==='rec'); b.dataset.mode=mode;
+  }
+  function horsLien(txt){ bouton('off'); etat('Not available here','warn'); note(txt); $('#vsOpenDir').hidden=true; $('#vsOpenLast').hidden=true; $('#vsAlt').open=true; }
   async function rafraichir(){
     let s;
     try{ s=await lien('/voice/status'); }
-    catch(e){ etat('not linked','p-warn'); boutons(false,false); clearInterval(suivi); suivi=null;
-      note('Open the desk with Open desk.bat to record from here (see Setup).'); return; }
-    if(!enCours) avant=s.folder;
-    boutons(true, s.running);
-    if(s.running){ etat(arrete?'summarizing…':'listening…','p-ok'); return; }
-    etat('ready','p-ok');
+    catch(e){ clearInterval(suivi); suivi=null; enCours=false; arrete=false;
+      return horsLien('The desk is not linked to this laptop. Open it with Open desk.bat (see Setup), or use a transcript below.'); }
+    $('#vsOpenDir').hidden=false;
+    $('#vsOpenLast').hidden=!(s.summary && s.summary.summary && s.summary.summary.kind==='client');
+    if(s.running){ bouton(arrete?'wait':'rec'); etat(arrete?'Writing the summary in French and English…':'Listening… a small window shows the text', arrete?'ok':'rec'); return; }
+    bouton('ready'); etat('Ready','ok');
     if(!enCours) return;
-    enCours=false; arrete=false; clearInterval(suivi); suivi=null; boutons(true,false);
+    enCours=false; arrete=false; clearInterval(suivi); suivi=null;
     const r=s.summary;
     if(r && r.summary && s.folder){
       res=r.summary; mres=r.meta; fait=new Set(); lg='fr';
       document.querySelectorAll('#mLang button').forEach(x=>x.setAttribute('aria-pressed', x.dataset.l==='fr'));
-      dessiner(); rt('ok','Summary of '+s.folder+(res.kind==='client'?' · the Word report opened on your laptop':''));
-      note('Done: '+s.folder+'.'); $('#mCard').scrollIntoView({behavior:'smooth', block:'start'});
-    } else note('Stopped, but no summary came back: read the Voice summary window, or open the recordings folder.');
+      dessiner(); note(res.kind==='client' ? 'Done. The Word report opened on your laptop.' : 'Done.');
+      $('#mCard').scrollIntoView({behavior:'smooth', block:'start'});
+    } else note('Stopped, but no summary came back. Read the Voice summary window, or open the recordings folder.');
   }
-  $('#vsStart').onclick=async()=>{
+  $('#vsRecBtn').onclick=async()=>{
+    const mode=$('#vsRecBtn').dataset.mode;
     try{
-      const k=$('#vsKind').value;
-      await lien('/voice/start',{client:$('#vsClient').value.trim(), project:$('#vsProj').value.trim(),
-                                 author:$('#vsAuthor').value.trim(), kind:k==='auto'?'':k});
-      enCours=true; arrete=false; etat('listening…','p-ok'); boutons(true,true);
-      note('Listening: a window opened with the text as it comes. Press Stop & summarize when the meeting ends.');
+      if(mode==='rec'){ await lien('/voice/stop',{}); arrete=true; bouton('wait'); etat('Finishing the transcript…','ok'); note(''); return; }
+      if(clientManquant()){ note('Type the client’s name in step 1 first.'); return; }
+      const m=meta('');
+      await lien('/voice/start',{client:m.client, project:m.project, author:m.author, kind});
+      enCours=true; arrete=false; bouton('rec'); etat('Listening… a small window shows the text','rec');
+      note('Let the meeting play. Press Stop & summarize when it ends.');
       clearInterval(suivi); suivi=setInterval(rafraichir,3000);
     }catch(e){ note(String(e.message||e)); }
-  };
-  $('#vsStop').onclick=async()=>{
-    try{ await lien('/voice/stop',{}); arrete=true; boutons(true,true); etat('summarizing…','p-ok');
-      note('Finishing the transcript, then Claude writes the summary in French and English (a minute or two)…'); }
-    catch(e){ note(String(e.message||e)); }
   };
   $('#vsOpenLast').onclick=()=>lien('/voice/open',{what:'report'}).then(d=>note('Opened '+d.opened+'.')).catch(e=>note(e.message));
   $('#vsOpenDir').onclick=()=>lien('/voice/open',{what:'recordings'}).then(()=>note('The recordings folder opened.')).catch(e=>note(e.message));
   (async()=>{
-    if(window.claude && typeof claude.use==='function'){ etat('not here','p-warn'); note('On claude.ai the desk can’t reach your laptop: use Voice summary.bat, or open the desk with Open desk.bat.'); return; }
-    if(await lienLocal()) rafraichir(); else { etat('not linked','p-warn'); note('Open the desk with Open desk.bat to record from here (see Setup).'); }
+    if(window.claude && typeof claude.use==='function')
+      return horsLien('On claude.ai the desk can’t reach your laptop. Record with Voice summary.bat, or use a transcript below.');
+    if(await lienLocal()) rafraichir();
+    else horsLien('The desk is not linked to this laptop. Open it with Open desk.bat (see Setup), or use a transcript below.');
   })();
 })();
 

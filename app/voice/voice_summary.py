@@ -389,15 +389,16 @@ def main(argv=None):
         raise SystemExit(f'{e} The transcript is saved: rerun with --from "{folder}".')
     md = report.markdown(data, meta)
     open(os.path.join(folder, 'summary.md'), 'w', encoding='utf-8').write(md)
-    doc = os.path.join(folder, report.file_name(data, meta))
-    open(doc, 'wb').write(report.docx(data, meta))
     open(os.path.join(folder, 'summary.json'), 'w', encoding='utf-8').write(
         json.dumps({'meta': meta, 'summary': data}, ensure_ascii=False, indent=1))
     print('\n' + md)
     print('Summary (French + English):', os.path.join(folder, 'summary.md'))
-    print('Report (Word):', doc)
-    if sys.platform == 'win32':
-        os.startfile(doc)                                  # opens it in Word
+    if data['kind'] == 'client':                          # the Equadis meeting report: client meetings only
+        doc = os.path.join(folder, report.file_name(data, meta))
+        open(doc, 'wb').write(report.docx(data, meta))
+        print('Meeting report (Word):', doc)
+        if sys.platform == 'win32':
+            os.startfile(doc)                              # opens it in Word
 
 
 if __name__ == '__main__':
