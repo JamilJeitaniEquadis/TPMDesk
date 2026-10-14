@@ -34,7 +34,7 @@ def call(url, origin, header=True, body=None):
     h = {'Origin': origin, 'Content-Type': 'application/json'}
     if header:
         h['X-TPM-Desk'] = '1'
-    req = urllib.request.Request(url, data=json.dumps(body).encode() if body else None, headers=h)
+    req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, headers=h)
     try:
         with urllib.request.urlopen(req) as r:
             return r.status, json.loads(r.read())
@@ -52,3 +52,34 @@ def test_sample_text_and_json(server):
     msgs = [{'role': 'user', 'content': 'hi'}]
     assert call(server + '/sample', 'null', body={'messages': msgs}) == (200, {'text': 'hello'})
     assert call(server + '/sample', 'null', body={'messages': msgs, 'json': True}) == (200, {'json': {'ok': True}})
+
+
+FAKE_VOICE = '''
+import os, sys, json, time
+rec = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'recordings')
+d = os.path.join(rec, '2026-10-14_1500_' + sys.argv[sys.argv.index('--client') + 1])
+os.makedirs(d, exist_ok=True)
+while not os.path.exists(os.path.join(rec, '.stop')):
+    time.sleep(0.1)
+json.dump({'meta': {}, 'summary': {'args': sys.argv[1:]}}, open(os.path.join(d, 'summary.json'), 'w'))
+'''
+
+
+def test_voice_start_stop_and_status(tmp_path, monkeypatch, server):
+    (tmp_path / 'voice_summary.py').write_text(FAKE_VOICE)
+    monkeypatch.setattr(cl, 'VOICE', str(tmp_path))
+    monkeypatch.setattr(cl, 'RECORDINGS', str(tmp_path / 'recordings'))
+    monkeypatch.setattr(cl, 'STOP_FLAG', str(tmp_path / 'recordings' / '.stop'))
+    opened = []
+    monkeypatch.setattr(cl, 'open_path', opened.append)
+    body = {'client': 'My"Origines', 'project': 'PIM', 'author': 'Jamil', 'kind': 'client'}
+    assert call(server + '/voice/start', 'null', body=body)[0] == 200
+    assert call(server + '/voice/start', 'null', body=body)[1]['code'] == 'busy'
+    assert call(server + '/voice/status', 'null')[1]['running'] is True
+    assert call(server + '/voice/stop', 'null', body={})[1] == {'stopped': True}
+    cl._voice['proc'].wait(10)
+    st = call(server + '/voice/status', 'null')[1]
+    assert st['running'] is False and st['folder'] == '2026-10-14_1500_My Origines'
+    assert st['summary']['summary']['args'][-2:] == ['--kind', 'client'] and 'My Origines' in st['summary']['summary']['args']
+    assert call(server + '/voice/open', 'null', body={'what': 'recordings'})[0] == 200 and opened
+    assert call(server + '/voice/start', 'https://evil.example', body=body)[0] == 403

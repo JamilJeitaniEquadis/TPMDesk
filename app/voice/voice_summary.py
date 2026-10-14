@@ -162,7 +162,19 @@ def listen(folder: str, model_size: str, language: str | None, with_mic: bool, g
     chunks = Chunker(lambda audio, offset: todo.put((audio, offset)))
     signal.signal(signal.SIGINT, lambda *_: stop.set())      # Ctrl+C ends the capture cleanly
     threading.Thread(target=lambda: (sys.stdin.readline(), stop.set()), daemon=True).start()   # so does Enter
-    print('Listening. Play anything; press Enter when you are done.')
+    flag = os.path.join(os.path.dirname(os.path.abspath(folder)), '.stop')   # and the desk's Stop button
+
+    def watch():
+        while not stop.is_set():
+            if os.path.exists(flag):
+                try:
+                    os.remove(flag)
+                except OSError:
+                    pass
+                stop.set()
+            time.sleep(0.5)
+    threading.Thread(target=watch, daemon=True).start()
+    print('Listening. Play anything; press Enter here (or Stop in the desk) when you are done.')
     capture(chunks.add, stop, with_mic)
     print('\nFinishing the transcript...')
     chunks.flush()
@@ -336,6 +348,7 @@ def main(argv=None):
                     help='parent folder (default: recordings next to this script)')
     ap.add_argument('--from', dest='src', help='existing folder: summarise its transcript again')
     ap.add_argument('--no-summary', action='store_true', help='only the transcript')
+    ap.add_argument('--keep-open-on-error', action='store_true', help=argparse.SUPPRESS)   # started from the desk
     a = ap.parse_args(argv)
 
     ensure_packages(listening=not a.src)
@@ -390,4 +403,12 @@ def main(argv=None):
 if __name__ == '__main__':
     if sys.platform == 'win32':
         sys.stdout.reconfigure(encoding='utf-8')               # accents in the console
-    main()
+    try:
+        main()
+    except (SystemExit, Exception) as e:
+        failed = not isinstance(e, SystemExit) or e.code not in (None, 0)
+        if failed and '--keep-open-on-error' in sys.argv:    # its own window: let the user read why
+            import traceback
+            print(e.code if isinstance(e, SystemExit) else traceback.format_exc())
+            input('\nPress Enter to close this window.')
+        raise

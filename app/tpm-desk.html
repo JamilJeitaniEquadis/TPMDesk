@@ -428,6 +428,10 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
 .mcard .mbtns{margin:12px 0 4px}
 .mcard #mObj{margin:12px 0 4px} .mcard #mOver{margin:4px 0; color:var(--ink-soft)}
 .mcard ul ul{margin:2px 0 4px; list-style:circle}
+
+.vsrechead{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:4px}
+.vsrechead h3{margin:0; font-size:15px}
+.vsrec .actions{margin:8px 0 4px; flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -583,21 +587,10 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         report (PV) as a Word file, like the team&rsquo;s reports.</p>
 
       <ol class="msteps">
-        <li><b>1</b><span>First time on this laptop? Do the <a href="#" data-goto="vsetup">Setup</a>.</span></li>
-        <li><b>2</b><span>Double-click <b>Voice summary.bat</b> (<code>app\voice</code>). Give the client&rsquo;s name if it is a client meeting, play the meeting, press <b>Enter</b> at the end. It writes the summary and opens the Word report.</span></li>
-        <li><b>3</b><span>Or here: drop <code>transcript.txt</code> or paste a transcript, fill in the meeting below, press <b>Summarize</b>.</span></li>
+        <li><b>1</b><span>First time on this laptop? Do the <a href="#" data-goto="vsetup">Setup</a>, then open the desk with <b>Open desk.bat</b>.</span></li>
+        <li><b>2</b><span>Fill in the meeting, press <b>Start listening</b> and let the meeting play. A small window shows the text as it comes.</span></li>
+        <li><b>3</b><span>At the end press <b>Stop &amp; summarize</b>: the summary appears below in French and English, and the Word report opens.</span></li>
       </ol>
-
-      <div class="slots mslots">
-        <label class="slot" id="slotM" tabindex="0">
-          <input type="file" id="fileM" accept=".vtt,.docx,.txt,text/vtt,text/plain">
-          <em>Transcript</em><b id="nomM">Drop transcript.txt (or .vtt, .docx) here</b>
-          <span class="slotnote" id="natM">Nothing is uploaded anywhere: the file is read in this page.</span>
-        </label>
-      </div>
-      <details class="drawer mpaste" open><summary>Or paste the transcript</summary>
-        <textarea id="mPaste" rows="7" placeholder="[00:00:01] what was said…"></textarea>
-      </details>
 
       <div class="card vsmeta">
         <h3>The meeting</h3>
@@ -615,6 +608,30 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
         </div>
         <p class="note">Only the name, project and date you type here go in the report header; Claude fills the rest from what was said.</p>
       </div>
+
+      <div class="card vsrec" id="vsRec">
+        <div class="vsrechead"><h3>Record from this laptop</h3><span class="pill" id="vsState">checking…</span></div>
+        <div class="actions">
+          <button class="btn" id="vsStart" disabled>Start listening</button>
+          <button class="btn" id="vsStop" disabled>Stop &amp; summarize</button>
+          <button class="btn ghost" id="vsOpenLast" disabled>Open last report</button>
+          <button class="btn ghost" id="vsOpenDir" disabled>Open recordings folder</button>
+        </div>
+        <p class="note" id="vsRecNote"></p>
+      </div>
+
+      <h2 class="vs-h">Or summarise a transcript</h2>
+      <div class="slots mslots">
+        <label class="slot" id="slotM" tabindex="0">
+          <input type="file" id="fileM" accept=".vtt,.docx,.txt,text/vtt,text/plain">
+          <em>Transcript</em><b id="nomM">Drop transcript.txt (or .vtt, .docx) here</b>
+          <span class="slotnote" id="natM">Nothing is uploaded anywhere: the file is read in this page.</span>
+        </label>
+      </div>
+      <details class="drawer mpaste" open><summary>Or paste the transcript</summary>
+        <textarea id="mPaste" rows="7" placeholder="[00:00:01] what was said…"></textarea>
+      </details>
+
 
       <div class="runtime" id="mRt"><span class="dot" aria-hidden="true"></span><span id="mRtTxt">Drop a transcript to start.</span></div>
       <div class="actions">
@@ -665,7 +682,8 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
           <ul><li>the line <i>[listening to: &hellip;]</i> must name the speakers or headset you actually hear;</li>
             <li>text lines appear about every 30 seconds;</li>
             <li>at the end, Claude writes the summary, shown and saved in <code>app\voice\recordings\&lt;date&gt;\summary.md</code>.</li></ul>
-          <p>Warnings about <i>PATH</i> or <i>symlinks</i> are harmless.</p></div></li>
+          <p>Warnings about <i>PATH</i> or <i>symlinks</i> are harmless. After this first run, start and stop it from the
+            <a href="#" data-goto="meet">Voice summary</a> page with <b>Start listening</b> and <b>Stop &amp; summarize</b>.</p></div></li>
       </ol>
 
       <h2 class="vs-h">If something goes wrong</h2>
@@ -2247,7 +2265,58 @@ majFichiers();
   $('#mMail').onclick=()=>{ window.open('https://outlook.office.com/mail/deeplink/compose?'+new URLSearchParams({subject:titreDe('fr'), body:texteBrut('fr')+'\n\n----------\n\n'+texteBrut('en')}).toString(),'_blank','noopener'); };
   $('#mDocx').onclick=()=>enregistrer(new File([rpDocx(res, mres)], rp('file_name', res, mres, 'docx'), {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
   $('#mDl').onclick=()=>enregistrer(new File([rp('markdown', res, mres)], rp('file_name', res, mres, 'md'), {type:'text/markdown'}));
+  /* Record from this laptop : le lien Claude (Open desk.bat) lance voice_summary.py dans sa fenêtre,
+     l'arrête, ouvre le dossier ; à la fin, le résumé (summary.json) s'affiche ici. */
+  const lien=async(chemin,corps)=>{
+    const r=await fetch(LIEN+chemin, corps===undefined ? {headers:{'X-TPM-Desk':'1'}}
+      : {method:'POST', headers:{'Content-Type':'application/json','X-TPM-Desk':'1'}, body:JSON.stringify(corps)});
+    const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.message||'The Claude link refused.'); return d; };
+  let suivi=null, avant=null, enCours=false, arrete=false;
+  const etat=(txt,cls)=>{ const s=$('#vsState'); s.textContent=txt; s.className='pill '+(cls||''); };
+  const boutons=(on,run)=>{ $('#vsStart').disabled=!on||run; $('#vsStop').disabled=!on||!run||arrete; $('#vsOpenLast').disabled=!on; $('#vsOpenDir').disabled=!on; };
+  const note=t=>$('#vsRecNote').textContent=t;
+  async function rafraichir(){
+    let s;
+    try{ s=await lien('/voice/status'); }
+    catch(e){ etat('not linked','p-warn'); boutons(false,false); clearInterval(suivi); suivi=null;
+      note('Open the desk with Open desk.bat to record from here (see Setup).'); return; }
+    if(!enCours) avant=s.folder;
+    boutons(true, s.running);
+    if(s.running){ etat(arrete?'summarizing…':'listening…','p-ok'); return; }
+    etat('ready','p-ok');
+    if(!enCours) return;
+    enCours=false; arrete=false; clearInterval(suivi); suivi=null; boutons(true,false);
+    const r=s.summary;
+    if(r && r.summary && s.folder){
+      res=r.summary; mres=r.meta; fait=new Set(); lg='fr';
+      document.querySelectorAll('#mLang button').forEach(x=>x.setAttribute('aria-pressed', x.dataset.l==='fr'));
+      dessiner(); rt('ok','Summary of '+s.folder+(res.kind==='client'?' · the Word report opened on your laptop':''));
+      note('Done: '+s.folder+'.'); $('#mCard').scrollIntoView({behavior:'smooth', block:'start'});
+    } else note('Stopped, but no summary came back: read the Voice summary window, or open the recordings folder.');
+  }
+  $('#vsStart').onclick=async()=>{
+    try{
+      const k=$('#vsKind').value;
+      await lien('/voice/start',{client:$('#vsClient').value.trim(), project:$('#vsProj').value.trim(),
+                                 author:$('#vsAuthor').value.trim(), kind:k==='auto'?'':k});
+      enCours=true; arrete=false; etat('listening…','p-ok'); boutons(true,true);
+      note('Listening: a window opened with the text as it comes. Press Stop & summarize when the meeting ends.');
+      clearInterval(suivi); suivi=setInterval(rafraichir,3000);
+    }catch(e){ note(String(e.message||e)); }
+  };
+  $('#vsStop').onclick=async()=>{
+    try{ await lien('/voice/stop',{}); arrete=true; boutons(true,true); etat('summarizing…','p-ok');
+      note('Finishing the transcript, then Claude writes the summary in French and English (a minute or two)…'); }
+    catch(e){ note(String(e.message||e)); }
+  };
+  $('#vsOpenLast').onclick=()=>lien('/voice/open',{what:'report'}).then(d=>note('Opened '+d.opened+'.')).catch(e=>note(e.message));
+  $('#vsOpenDir').onclick=()=>lien('/voice/open',{what:'recordings'}).then(()=>note('The recordings folder opened.')).catch(e=>note(e.message));
+  (async()=>{
+    if(window.claude && typeof claude.use==='function'){ etat('not here','p-warn'); note('On claude.ai the desk can’t reach your laptop: use Voice summary.bat, or open the desk with Open desk.bat.'); return; }
+    if(await lienLocal()) rafraichir(); else { etat('not linked','p-warn'); note('Open the desk with Open desk.bat to record from here (see Setup).'); }
+  })();
 })();
+
 
 
 

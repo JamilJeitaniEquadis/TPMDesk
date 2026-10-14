@@ -8,8 +8,12 @@ which passes them to Claude Code, signed in with your Claude account. Only the d
 call it: the server listens on this laptop only (127.0.0.1), answers file:// pages only, and
 requires a header that other web pages can't send without the browser asking this server
 first. Claude Code runs with its tools off, in an empty folder: it only writes text back.
+
+It also lets the desk start and stop Voice summary (voice/voice_summary.py, in its own window) and
+open the recordings folder or the last report: fixed commands only, nothing typed is run as a command.
 """
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -93,6 +97,96 @@ def first_json(text: str):
         raise LinkError('invalid_json', 'Claude did not answer in JSON.')
 
 
+# ---------- Voice summary, started and stopped from the desk ----------
+# Fixed commands only: the desk can start voice_summary.py (client and project are passed as
+# arguments, never through a shell), ask it to stop, and open the recordings folder or a report.
+
+VOICE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'voice')
+RECORDINGS = os.path.join(VOICE, 'recordings')
+STOP_FLAG = os.path.join(RECORDINGS, '.stop')             # voice_summary.py watches for it
+_voice = {'proc': None}
+
+
+def _clean_arg(x) -> str:
+    return re.sub(r'[\x00-\x1f"]', ' ', str(x or '')).strip()[:80]
+
+
+def voice_running() -> bool:
+    p = _voice['proc']
+    return p is not None and p.poll() is None
+
+
+def voice_start(client: str, project: str, author: str = '', kind: str = '') -> dict:
+    if voice_running():
+        raise LinkError('busy', 'Voice summary is already listening.')
+    os.makedirs(RECORDINGS, exist_ok=True)
+    if os.path.exists(STOP_FLAG):
+        os.remove(STOP_FLAG)
+    cmd = [sys.executable, os.path.join(VOICE, 'voice_summary.py'), '--keep-open-on-error']
+    if _clean_arg(client):
+        cmd += ['--client', _clean_arg(client)]
+    if _clean_arg(project):
+        cmd += ['--project', _clean_arg(project)]
+    if _clean_arg(author):
+        cmd += ['--author', _clean_arg(author)]
+    if kind in ('client', 'internal', 'other'):
+        cmd += ['--kind', kind]
+    flags = subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0   # its own window, to see the text
+    _voice['proc'] = subprocess.Popen(cmd, cwd=VOICE, creationflags=flags)
+    return {'started': True}
+
+
+def voice_stop() -> dict:
+    if not voice_running():
+        return {'stopped': False}
+    open(STOP_FLAG, 'w').close()
+    return {'stopped': True}
+
+
+def latest_folder() -> str | None:
+    if not os.path.isdir(RECORDINGS):
+        return None
+    dirs = [os.path.join(RECORDINGS, d) for d in os.listdir(RECORDINGS) if os.path.isdir(os.path.join(RECORDINGS, d))]
+    return max(dirs, key=os.path.getmtime) if dirs else None
+
+
+def voice_status() -> dict:
+    last = latest_folder()
+    out = {'running': voice_running(), 'folder': os.path.basename(last) if last else None, 'summary': None}
+    path = os.path.join(last, 'summary.json') if last else None
+    if path and os.path.exists(path):
+        try:
+            out['summary'] = json.load(open(path, encoding='utf-8'))
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def open_path(path: str):
+    if sys.platform == 'win32':
+        os.startfile(path)
+    else:
+        subprocess.Popen(['open' if sys.platform == 'darwin' else 'xdg-open', path])
+
+
+def voice_open(what: str) -> dict:
+    if what == 'recordings':
+        os.makedirs(RECORDINGS, exist_ok=True)
+        open_path(RECORDINGS)
+        return {'opened': 'recordings'}
+    last = latest_folder()
+    if not last:
+        raise LinkError('not_found', 'No recording yet.')
+    if what == 'report':
+        docs = [f for f in os.listdir(last) if f.endswith('.docx')]
+        if not docs:
+            raise LinkError('not_found', 'The last recording has no report yet.')
+        open_path(os.path.join(last, docs[0]))
+        return {'opened': docs[0]}
+    open_path(last)
+    return {'opened': os.path.basename(last)}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = 'TPMDeskClaudeLink/1'
 
@@ -126,25 +220,35 @@ class Handler(BaseHTTPRequestHandler):
         if not self._checked():
             return
         if self.path == '/health':
-            self._send(200, {'ok': True, 'claude_code': bool(claude_cli())})
+            self._send(200, {'ok': True, 'claude_code': bool(claude_cli()), 'voice': True})
+        elif self.path == '/voice/status':
+            self._send(200, voice_status())
         else:
             self._send(404, {'code': 'not_found'})
 
     def do_POST(self):
         if not self._checked():
             return
-        if self.path != '/sample':
-            return self._send(404, {'code': 'not_found'})
         try:
             size = int(self.headers.get('Content-Length', '0'))
             if size > MAX_BODY:
                 raise LinkError('prompt_too_large', 'Too much text at once.')
             req = json.loads(self.rfile.read(size) or b'{}')
+            if self.path == '/voice/start':
+                return self._send(200, voice_start(req.get('client'), req.get('project'), req.get('author'), req.get('kind')))
+            if self.path == '/voice/stop':
+                return self._send(200, voice_stop())
+            if self.path == '/voice/open':
+                return self._send(200, voice_open(str(req.get('what') or 'last')))
+            if self.path != '/sample':
+                return self._send(404, {'code': 'not_found'})
             want_json = bool(req.get('json'))
             text = ask(as_prompt(req.get('messages') or [], want_json))
             self._send(200, {'json': first_json(text)} if want_json else {'text': text})
         except LinkError as e:
             self._send(502, {'code': e.code, 'message': str(e)})
+        except OSError as e:
+            self._send(500, {'code': 'os_error', 'message': str(e)})
         except (ValueError, TypeError) as e:
             self._send(400, {'code': 'invalid_request', 'message': str(e)})
 
