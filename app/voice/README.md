@@ -28,13 +28,17 @@ paste it in Voice summary (Ctrl+V) and press Summarize.
 
 ## Each time
 
-Double-click **Voice summary.bat**, or from this folder:
+Double-click **Voice summary.bat**. It asks:
+- **the client's name** if it is a client meeting (Enter if not): you then also get the Equadis meeting
+  report (PV) as a Word file, in the team's format: header, participants, objective, points discussed,
+  next steps, next meeting;
+- an optional subject.
 
-    python voice_summary.py --title "Supplier call" --lang fr
+Play the meeting, then press **Enter**. The summary is always in **French and English**, whatever language
+was spoken. The folder `recordings/<date>_<client>/` gets `transcript.txt`, `summary.md` and the Word report,
+which opens by itself. Your name for "Rédigé par" is asked once and kept in `settings.json`.
 
-Play what you want to hear. Press **Enter** in the window when you are done. You get
-`recordings/<date>_<title>/transcript.txt` and `summary.md` (overview, key points, action items,
-open questions), also shown in the window.
+The instructions given to Claude and the Word layout are in `report.py`, shared with the desk.
 
 - It follows the device you are listening on: plug in headphones mid-way and it keeps going.
 - `--mic` also records your microphone (use it when you speak too, e.g. in a call).

@@ -20,22 +20,25 @@ def test_chunker_keeps_time_offsets_and_all_audio():
     assert got[0][1] == 0 and got[1][1] == got[0][0] / v.RATE
 
 
+ANSWER = {'kind': 'client', 'client': None, 'project': None, 'participants': {'client': [], 'equadis': []},
+          'fr': {'title': 'Point', 'objective': 'O', 'overview': 'Résumé.', 'points': [], 'decisions': [],
+                 'actions': [], 'openQuestions': [], 'nextMeeting': None},
+          'en': {'title': 'Sync', 'objective': 'O', 'overview': 'Summary.', 'points': [], 'decisions': [],
+                 'actions': [], 'openQuestions': [], 'nextMeeting': None}}
+
+
 def test_long_transcripts_are_split_then_merged(monkeypatch):
     calls = []
-
-    def fake(system, user):
-        calls.append(user)
-        return {'title': 't', 'overview': 'o', 'keyPoints': [], 'actionItems': [], 'openQuestions': []}
-
-    monkeypatch.setattr(v, 'ask_claude', fake)
-    monkeypatch.setattr(v, 'CHUNK_CHARS', 50)
+    monkeypatch.delenv('ANTHROPIC_API_KEY', raising=False)
+    monkeypatch.setattr(v, 'ask_cli', lambda task: calls.append(task) or ANSWER)
+    monkeypatch.setattr(v, 'CHUNK_BYTES', 60)
     text = ''.join(f'[00:00:{i:02d}] line number {i}\n' for i in range(10))
-    assert len(v.pieces(text, 50)) > 1
-    v.summarise(text, 'Call')
-    assert len(calls) == len(v.pieces(text, 50)) + 1 and '<part n="1">' in calls[-1]
+    data = v.summarise(text, {'client': 'MyOrigines'})
+    assert len(calls) == len(v.report.chunks(text, 60)) + 1 > 2
+    assert '<part n="1">' in calls[-1] and 'Client: MyOrigines' in calls[0] and '"fr"' in calls[0]
+    assert data['client'] == 'MyOrigines' and data['kind'] == 'client'
 
 
-def test_markdown():
-    md = v.to_markdown({'title': 'X', 'overview': 'Done.', 'keyPoints': ['A'], 'actionItems': ['Send Excel'],
-                        'openQuestions': []}, '', '13/10/2026')
-    assert md.startswith('# X') and '- [ ] Send Excel' in md and '## Open questions\n- none' in md
+def test_when_reads_the_folder_and_the_last_timestamp():
+    w = v.when('recordings/2026-07-17_1000_MyOrigines', None, None, '[00:00:05] a\n[01:00:00] b\n')
+    assert w == {'date': '17/07/2026', 'time': '10h – 11h (60 min)'}

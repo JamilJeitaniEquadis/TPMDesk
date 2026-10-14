@@ -47,9 +47,11 @@ rem ---- 3. Listen. The summary is made in the desk on claude.ai (no API key nee
 :key
 :run
 echo.
+set "CLIENT="
+set /p "CLIENT=Client meeting? Type the client's name (Enter if not): "
 set "TITLE="
-set /p "TITLE=What are you listening to (Enter to skip)? "
-"%PY%" voice_summary.py --title "%TITLE%"
+set /p "TITLE=Subject, optional (Enter to skip): "
+"%PY%" voice_summary.py --client "%CLIENT%" --title "%TITLE%"
 
 :end
 echo.

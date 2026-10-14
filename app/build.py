@@ -23,6 +23,8 @@ for w in roues:
 for f in sorted(glob.glob(os.path.join(ICI, 'xml', '*.py')) + glob.glob(os.path.join(ICI, 'xml', '*.json'))):
     fichiers['/xml/' + os.path.basename(f)] = f
 
+fichiers['/voice/report.py'] = os.path.join(ICI, 'voice', 'report.py')   # Voice summary : consigne et rapport Word
+
 for f in glob.glob(os.path.join(ICI, 'defaults', '*.xlsx')):
     fichiers['/defaults/' + os.path.basename(f)] = f
 
