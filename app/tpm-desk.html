@@ -955,6 +955,7 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
             <label class="f"><span>Description *</span><input type="text" id="kDesc" placeholder="Création / MAJ massive XML Cloud" autocomplete="off"></label>
             <label class="f"><span>Report recipients (emailsDestinataires)</span><input type="text" id="kMails" value="internal@equadis.com" autocomplete="off"></label>
             <label class="f"><span>Internal emails (emails_internes, comma separated)</span><input type="text" id="kInt" placeholder="you@equadis.com" autocomplete="off"></label>
+            <label class="chk"><input type="checkbox" id="kCentral"> The client is a central (centrale): it integrates for its subscribers by GLN</label>
             <label class="f"><span>Folder name on the server</span><input type="text" id="kFolder" placeholder="20090-XMLCIN" autocomplete="off"></label>
             <div class="picks" id="kPicks"><button type="button" data-suf="">id</button><button type="button" data-suf="-XMLCIN">id-XMLCIN</button><button type="button" data-suf="-EquaExcel">id-EquaExcel</button></div>
             <label class="f"><span>Folder root on the SFTP server (WinSCP)</span><input type="text" id="kSftp" value="/shared/Batchs/integrationNew" autocomplete="off"></label>
@@ -1727,8 +1728,14 @@ function md(t){
       v('kInt')?q(v('kInt').replace(/\s*[,;]\s*/g,',')):'NULL', lit('x',f('skipIntegration'))];
     const ins=['INSERT INTO integration_interface','  ('+cols.join(', ')+')','VALUES','  ('+vals.join(', ')+');'];
     const voir="SELECT * FROM integration_interface WHERE idIndustriel = "+id+" AND integrationType = 'XML_Cloud';";
+    /* centrale : le réglage pointe sur l'id de l'interface qu'on vient de créer (619 pour 20090) */
+    const centrale=$('#kCentral').checked ? ['INSERT INTO INTEGRATION_INTERFACE_SETTINGS',
+      "SELECT id, 'AllowIntegrationCentraleByGlnForSousc', NULL",
+      'FROM integration_interface',
+      'WHERE idIndustriel = '+id+" AND integrationType = 'XML_Cloud' AND directoryInterface = "+q(dossier())+';'] : [];
+    const voirC=$('#kCentral').checked ? ['SELECT TOP 20 * FROM INTEGRATION_INTERFACE_SETTINGS ORDER BY 1 DESC;'] : [];
     if(style==='plain') return ['-- XML_Cloud interface for idIndustriel '+id+' (plain: no transaction, no checks)','']
-      .concat(ins,['',voir]).join('\n');
+      .concat(ins, centrale.length?['','-- Central client: integration by GLN for its subscribers']:[], centrale, ['',voir], voirC).join('\n');
     return [
 '-- XML_Cloud interface for idIndustriel '+id+(v('kDesc')?' ('+v('kDesc')+')':''),
 '',
@@ -1750,8 +1757,12 @@ function md(t){
 'VALUES',
 '  ('+vals.join(', ')+');',
 '',
-'-- 3. Check the row, then run ONE of the two lines below.',
+...(centrale.length ? ['-- 2b. Central client: lets the central integrate by GLN for its subscribers.',
+  '--     Same as: insert into INTEGRATION_INTERFACE_SETTINGS values (<id of the row above>, \'AllowIntegrationCentraleByGlnForSousc\', NULL)',
+  '--     If the interface already existed (step 1), run only this INSERT.', ...centrale, ''] : []),
+'-- 3. Check the row'+(centrale.length?'s':'')+', then run ONE of the two lines below.',
 "SELECT * FROM integration_interface WHERE idIndustriel = "+id+" AND integrationType = 'XML_Cloud';",
+...voirC,
 '',
 '-- COMMIT;',
 '-- ROLLBACK;'].join('\n');
@@ -1781,7 +1792,7 @@ function md(t){
     /* rappel de l'étape 1 : les étapes 2 à 4 en sont toutes dérivées */
     const rc=$('#knRecap'); rc.hidden = etape===0;
     if(etape>0){ rc.innerHTML=''; rc.appendChild(el('b',null,'Step 1'));
-      [['idIndustriel',id],['Folder',nom()],['Type','XML_Cloud'],['Reports',v('kMails')]]
+      [['idIndustriel',id],['Folder',nom()],['Type','XML_Cloud'],['Reports',v('kMails')],['Central',$('#kCentral').checked?'yes':'']]
         .filter(x=>x[1]).forEach(([k,x])=>{ const sp=el('span'); sp.appendChild(el('em',null,k)); sp.appendChild(el('strong',null,x)); rc.appendChild(sp); });
       const e=el('button',null,'Edit'); e.onclick=()=>aller(0); rc.appendChild(e); }
     $('#kId').closest('.f').classList.toggle('miss', etape===0 && !!v('kId') && !idOk());
