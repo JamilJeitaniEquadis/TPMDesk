@@ -458,6 +458,10 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
 .mcard .mhead h2{margin:0}
 .mcard #mMeta{display:block; margin:4px 0 0}
 .vsfoot{margin-top:4px}
+
+.kcentral{margin:0 0 12px 24px; padding-left:12px; border-left:2px solid var(--rule)}
+.kcentral textarea{width:100%; box-sizing:border-box; font:13px/1.45 "IBM Plex Mono",ui-monospace,Consolas,monospace; padding:8px 10px; border-radius:7px; border:1px solid var(--rule); background:var(--paper); color:var(--ink)}
+.ksupacts{display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center}
 </style>
 </head>
 <body>
@@ -956,6 +960,12 @@ fieldset.box legend{font-weight:600; font-size:14px; padding:0 6px}
             <label class="f"><span>Report recipients (emailsDestinataires)</span><input type="text" id="kMails" value="internal@equadis.com" autocomplete="off"></label>
             <label class="f"><span>Internal emails (emails_internes, comma separated)</span><input type="text" id="kInt" placeholder="you@equadis.com" autocomplete="off"></label>
             <label class="chk"><input type="checkbox" id="kCentral"> The client is a central (centrale): it integrates for its subscribers by GLN</label>
+            <div class="kcentral" id="kCentralBox" hidden>
+              <label class="f"><span>Catalogue id (@ID_CATALOGUE) *</span><input type="text" id="kCat" inputmode="numeric" placeholder="57" autocomplete="off"></label>
+              <label class="f"><span>Suppliers to subscribe: one per line, GLN then name</span>
+                <textarea id="kSup" rows="5" placeholder="3014746300550&#9;L'OREAL LUXE - FR"></textarea></label>
+              <div class="ksupacts"><button type="button" class="btn ghost" id="kSupImport">Take them from Convert by GLN</button><span class="note" id="kSupNote"></span></div>
+            </div>
             <label class="f"><span>Folder name on the server</span><input type="text" id="kFolder" placeholder="20090-XMLCIN" autocomplete="off"></label>
             <div class="picks" id="kPicks"><button type="button" data-suf="">id</button><button type="button" data-suf="-XMLCIN">id-XMLCIN</button><button type="button" data-suf="-EquaExcel">id-EquaExcel</button></div>
             <label class="f"><span>Folder root on the SFTP server (WinSCP)</span><input type="text" id="kSftp" value="/shared/Batchs/integrationNew" autocomplete="off"></label>
@@ -1716,6 +1726,15 @@ function md(t){
   const lit = (k,val) => { if(val==='' || val==null) return 'NULL';
     if(k==='xslPath') return q(val); return /^-?\d+$/.test(val) ? val : 'NULL'; };
 
+  /* fournisseurs : « GLN nom » par ligne (collé d'Excel, séparé par tabulation, ; ou espace) */
+  function fournisseurs(){
+    const ok=[], ko=[], vus=new Set();
+    $('#kSup').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).forEach(l=>{
+      const m=l.match(/^(\d{13})\s*[;\t,|]?\s*(.+)$/);
+      if(!m) return ko.push(l);
+      if(!vus.has(m[1])){ vus.add(m[1]); ok.push({gln:m[1], nom:m[2].replace(/\s+/g,' ').trim()}); } });
+    return {ok, ko};
+  }
   function sql(){
     const id=v('kId')||'<idIndustriel>';
     const cols=['idIndustriel','integrationType','directoryInterface','xslPath','descriptionInterface','emailsDestinataires',
@@ -1734,8 +1753,13 @@ function md(t){
       'FROM integration_interface',
       'WHERE idIndustriel = '+id+" AND integrationType = 'XML_Cloud' AND directoryInterface = "+q(dossier())+';'] : [];
     const voirC=$('#kCentral').checked ? ['SELECT TOP 20 * FROM INTEGRATION_INTERFACE_SETTINGS ORDER BY 1 DESC;'] : [];
+    /* centrale : une souscription par fournisseur, rattachée à l'idIndustriel de la centrale */
+    const cat=/^\d+$/.test(v('kCat')) ? v('kCat') : '<ID_CATALOGUE>';
+    const souscr=$('#kCentral').checked ? fournisseurs().ok.map(f=>"EXEC dbo.[NEW_INDUSTRIEL_GEDAL] @GLN='"+f.gln+"',@NOM_INDUSTRIEL="+q(f.nom)+
+      ",@ID_CATALOGUE='"+cat+"',@ACTION='1',@idIndustrielParent='"+id+"'") : [];
     if(style==='plain') return ['-- XML_Cloud interface for idIndustriel '+id+' (plain: no transaction, no checks)','']
-      .concat(ins, centrale.length?['','-- Central client: integration by GLN for its subscribers']:[], centrale, ['',voir], voirC).join('\n');
+      .concat(ins, centrale.length?['','-- Central client: integration by GLN for its subscribers']:[], centrale,
+              souscr.length?['','-- Subscriptions: one per supplier']:[], souscr, ['',voir], voirC).join('\n');
     return [
 '-- XML_Cloud interface for idIndustriel '+id+(v('kDesc')?' ('+v('kDesc')+')':''),
 '',
@@ -1765,7 +1789,10 @@ function md(t){
 ...voirC,
 '',
 '-- COMMIT;',
-'-- ROLLBACK;'].join('\n');
+'-- ROLLBACK;',
+...(souscr.length ? ['',
+  '-- 4. Central client: subscribe its '+souscr.length+' supplier'+(souscr.length>1?'s':'')+' (after the COMMIT), one line each.',
+  '--    Parent = this central ('+id+'), catalogue '+cat+'.', ...souscr] : [])].join('\n');
   }
   function rendre(){
     const d=dossier(), id=v('kId')||'<idIndustriel>';
@@ -1792,7 +1819,8 @@ function md(t){
     /* rappel de l'étape 1 : les étapes 2 à 4 en sont toutes dérivées */
     const rc=$('#knRecap'); rc.hidden = etape===0;
     if(etape>0){ rc.innerHTML=''; rc.appendChild(el('b',null,'Step 1'));
-      [['idIndustriel',id],['Folder',nom()],['Type','XML_Cloud'],['Reports',v('kMails')],['Central',$('#kCentral').checked?'yes':'']]
+      [['idIndustriel',id],['Folder',nom()],['Type','XML_Cloud'],['Reports',v('kMails')],
+       ['Central',$('#kCentral').checked?'yes · '+fournisseurs().ok.length+' supplier'+(fournisseurs().ok.length===1?'':'s'):'']]
         .filter(x=>x[1]).forEach(([k,x])=>{ const sp=el('span'); sp.appendChild(el('em',null,k)); sp.appendChild(el('strong',null,x)); rc.appendChild(sp); });
       const e=el('button',null,'Edit'); e.onclick=()=>aller(0); rc.appendChild(e); }
     $('#kId').closest('.f').classList.toggle('miss', etape===0 && !!v('kId') && !idOk());
@@ -1809,7 +1837,18 @@ function md(t){
   document.querySelectorAll('#v-xinteg [data-sql]').forEach(b=>b.onclick=()=>{ style=b.dataset.sql; rendre(); });
   document.querySelectorAll('#kPicks [data-suf]').forEach(b=>b.onclick=()=>{ $('#kFolder').value=(v('kId')||'')+b.dataset.suf; rendre(); });
   $('#kId').addEventListener('input',()=>{ $('#kFolder').placeholder=(v('kId')||'20090')+'-XMLCIN'; });
-  document.querySelectorAll('#v-xinteg input, #v-xinteg select').forEach(x=>x.addEventListener('input',rendre));
+  document.querySelectorAll('#v-xinteg input, #v-xinteg select, #v-xinteg textarea').forEach(x=>x.addEventListener('input',rendre));
+  const majCentrale=()=>{ $('#kCentralBox').hidden=!$('#kCentral').checked;
+    const f=fournisseurs(); $('#kSupNote').textContent=!$('#kSup').value.trim() ? '' :
+      f.ok.length+' supplier'+(f.ok.length===1?'':'s')+(f.ko.length?' · '+f.ko.length+' line'+(f.ko.length>1?'s':'')+' skipped (no 13-digit GLN first): '+f.ko.slice(0,2).join(' | '):''); };
+  ['kCentral','kSup'].forEach(k=>$('#'+k).addEventListener('input',majCentrale));
+  $('#kSupImport').onclick=()=>{
+    const l=window.fournisseursXml||[];
+    if(!l.length){ $('#kSupNote').textContent='Convert a file in Convert by GLN first, or paste the list.'; return; }
+    const deja=new Set(fournisseurs().ok.map(f=>f.gln));
+    const plus=l.filter(f=>!deja.has(f.gln)).map(f=>f.gln+'\t'+f.nom);
+    $('#kSup').value=($('#kSup').value.trim()?$('#kSup').value.trim()+'\n':'')+plus.join('\n');
+    majCentrale(); rendre(); };
   document.querySelectorAll('#v-xinteg [data-copy]').forEach(b=>b.onclick=async()=>{
     const out=document.querySelector('[data-cout="'+b.dataset.copy+'"]');
     try{ await navigator.clipboard.writeText($('#'+b.dataset.copy).textContent); out.textContent='Copied.'; }
@@ -2130,6 +2169,8 @@ majFichiers();
     $('#xRap').classList.toggle('hide', !res.rapport_chemin);
     $('#xOut').textContent='';
     $('#xRes').classList.remove('hide');
+    /* pour Integration setup · XML : les fournisseurs à souscrire si le client est une centrale */
+    window.fournisseursXml=res.fichiers.map(r=>({gln:r.gln, nom:fournisseur(r)}));
   }
 
   $('#xZip').onclick=async()=>{
