@@ -280,8 +280,9 @@ function refresh() {
 function renderAll() { renderProject(); renderRoles(); renderPhases(); refresh(); $('#shift').classList.remove('on'); }
 
 /* ---------- Excel ---------- */
-const NAVY = 'FF112032', PH = 'FFE3E9EF', WHITE = 'FFFFFFFF', GRID = 'FFC7D0D8';
-const FILL = { 1: 'FF4472C4', 2: 'FF2E9E6B', 3: 'FF112032', 4: 'FFA9B4BF', 5: 'FFC0504D', 6: 'FFD9A945' };
+/* Equadis look: navy and green (change them here for the whole Excel) */
+const NAVY = 'FF112032', GREEN = 'FF58EA9D', DKGREEN = 'FF0F7A55', SOFT = 'FF5A6B7C', PH = 'FFE3E9EF', WHITE = 'FFFFFFFF', GRID = 'FFC7D0D8';
+const FILL = { 1: 'FF2F5D8A', 2: 'FF58EA9D', 3: 'FF112032', 4: 'FFC7D0D8', 5: 'FFC0504D', 6: 'FFD9A945' };
 const STFILL = { co: ['FFDFF6EA', 'FF0F7A55'], ot: ['FFDCE6F5', 'FF2F5597'], ar: ['FFF5EBD8', 'FF8A5E10'], bl: ['FFF4E1DD', 'FF9E3A2C'], ns: ['FFEDF0F3', 'FF5A6B7C'] };
 const colL = n => { let s = ''; for (n++; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
 const xd = s => { const n = dn(s); return n == null ? null : new Date(n * 864e5); };
@@ -291,15 +292,26 @@ const safeName = s => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s
 
 function phasesForExport() { return S.phases.filter(p => p.tasks.length); }
 
+/* rows 1-3 of every sheet: the Equadis band, the title, the project manager in green */
+function brand(ws, last, title, W) {
+  ws.mergeCells('A1:' + last + '1'); const b = ws.getCell('A1');
+  b.value = { richText: [{ text: 'equadis', font: { bold: true, size: 15, color: { argb: GREEN } } },
+                         { text: '     Project Manager Desk', font: { size: 11, color: { argb: WHITE } } }] };
+  b.fill = solid(NAVY); b.alignment = { vertical: 'middle', indent: 1 }; ws.getRow(1).height = 28;
+  ws.mergeCells('A2:' + last + '2'); const t = ws.getCell('A2'); t.value = title;
+  t.font = { bold: true, size: 16, color: { argb: NAVY } }; t.alignment = { vertical: 'bottom' }; ws.getRow(2).height = 26;
+  ws.getCell('A3').value = { richText: [{ text: W.pm + ' : ', font: { color: { argb: SOFT } } },
+    { text: S.project.pm || '-', font: { bold: true, color: { argb: DKGREEN } } },
+    { text: '     ' + W.updated + ' ' + fmt(ds(todayN())), font: { color: { argb: SOFT } } }] };
+}
+const headLine = row => row.eachCell(c => { c.border = Object.assign({}, c.border || {}, { bottom: { style: 'medium', color: { argb: GREEN } } }); });
+
 function sheetRaci(wb, W) {
   const ws = wb.addWorksheet(W.raci, { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }] });
   ws.columns = [{ width: 52 }, { width: 15 }, { width: 18 }, { width: 14 }, { width: 20 }, { width: 24 }, { width: 40 }];
-  ws.mergeCells('A1:G1'); const t = ws.getCell('A1'); t.value = W.raci + ' - ' + S.project.client + ' / ' + S.project.name;
-  t.font = { bold: true, size: 16, color: { argb: NAVY } };
-  ws.getCell('A2').value = W.pm + ': ' + S.project.pm + ' · ' + W.updated + ' ' + fmt(ds(todayN()));
-  ws.getCell('A2').font = { color: { argb: 'FF5A6B7C' } };
+  brand(ws, 'G', W.raci + ' - ' + S.project.client + ' / ' + S.project.name, W);
   const hr = ws.getRow(4); hr.values = [W.task, W.status, W.R, W.A, W.C, W.I, W.comment];
-  hr.eachCell(c => { c.fill = solid(NAVY); c.font = { bold: true, color: { argb: WHITE } }; c.alignment = { vertical: 'middle', wrapText: true }; c.border = box; }); hr.height = 22;
+  hr.eachCell(c => { c.fill = solid(NAVY); c.font = { bold: true, color: { argb: WHITE } }; c.alignment = { vertical: 'middle', wrapText: true }; c.border = box; }); hr.height = 22; headLine(hr);
   let r = 5; const rows = {}, list = '"' + ST.map(k => W.st[k]).join(',') + '"';
   phasesForExport().forEach(p => {
     const first = r + 1, last = r + p.tasks.length, n = p.tasks.length, done = p.tasks.filter(x => x.status === 'co').length;
@@ -340,10 +352,7 @@ function sheetGantt(wb, W, raciRows) {
   const ws = wb.addWorksheet(W.gantt, { views: [{ state: 'frozen', xSplit: C0, ySplit: 5, showGridLines: false }] });
   ws.columns = [{ width: 46 }, { width: 14 }, { width: 14 }, { width: 11 }, { width: 11 }, { width: 6 }].concat(Array.from({ length: ncol }, () => ({ width: week ? 4.2 : 3.2 })));
   const lastL = colL(C0 + ncol - 1);
-  ws.mergeCells('A1:' + lastL + '1'); const t = ws.getCell('A1'); t.value = W.gantt + ' - ' + S.project.client + ' / ' + S.project.name;
-  t.font = { bold: true, size: 16, color: { argb: NAVY } };
-  ws.getCell('A2').value = W.pm + ': ' + S.project.pm + ' · ' + W.updated + ' ' + fmt(ds(today)); ws.getCell('A2').font = { color: { argb: 'FF5A6B7C' } };
-  ws.getCell('A3').value = W.glegend; ws.getCell('A3').font = { color: { argb: 'FF5A6B7C' }, size: 10 };
+  brand(ws, lastL, W.gantt + ' - ' + S.project.client + ' / ' + S.project.name, W);
   const loc = W.locale, hr = ws.getRow(5);
   [W.task, W.status, W.resp, W.start, W.end, W.days].forEach((v, i) => { const c = hr.getCell(i + 1); c.value = v; });
   let mStart = null, mKey = null;
@@ -352,13 +361,13 @@ function sheetGantt(wb, W, raciRows) {
     if (key !== mKey) {
       if (mKey != null) { const a = colL(C0 + mStart), b = colL(C0 + k - 1); if (a !== b) ws.mergeCells(a + '4:' + b + '4');
         const c = ws.getCell(a + '4'); c.value = new Date(dn(mKey + '-01') * 864e5).toLocaleDateString(loc, { month: 'short', year: '2-digit', timeZone: 'UTC' });
-        c.font = { bold: true, color: { argb: WHITE } }; c.fill = solid(NAVY); c.alignment = { horizontal: 'center' }; }
+        c.font = { bold: true, color: { argb: GREEN } }; c.fill = solid(NAVY); c.alignment = { horizontal: 'center' }; }
       mStart = k; mKey = key;
     }
     if (k < ncol) { const c = hr.getCell(C0 + k + 1); c.value = new Date(d * 864e5); c.numFmt = week ? 'dd/mm' : 'dd'; c.alignment = { horizontal: 'center', textRotation: week ? 90 : 0 }; }
   }
   hr.height = week ? 40 : 20;
-  hr.eachCell(c => { c.font = { bold: true, color: { argb: WHITE } }; c.fill = solid(NAVY); c.border = box; if (!c.alignment) c.alignment = { vertical: 'middle' }; });
+  hr.eachCell(c => { c.font = { bold: true, color: { argb: WHITE } }; c.fill = solid(NAVY); c.border = box; if (!c.alignment) c.alignment = { vertical: 'middle' }; }); headLine(hr);
   const st = W.st, cell = (k, r) => colL(C0 + k) + r, H = k => colL(C0 + k) + '$5';
   const inner = r => 'IF($B' + r + '="' + st.co + '",2,IF(OR($B' + r + '="' + st.bl + '",$E' + r + '<TODAY()),5,IF($B' + r + '="' + st.ns + '",4,1)))';
   const inRange = (r, k) => week ? 'AND($D' + r + '<=' + H(k) + '+6,$E' + r + '>=' + H(k) + ')' : 'AND($D' + r + '<=' + H(k) + ',$E' + r + '>=' + H(k) + ')';
@@ -393,6 +402,7 @@ function sheetGantt(wb, W, raciRows) {
     });
   });
   const end = r - 1;
+  ws.getCell('A' + (end + 2)).value = W.glegend; ws.getCell('A' + (end + 2)).font = { color: { argb: SOFT }, size: 10 };
   [4, 5].forEach(c => { for (let i = 6; i <= end; i++) ws.getCell(i, c).numFmt = 'dd/mm/yyyy'; });
   for (let i = 6; i <= end; i++) for (let k = 0; k < ncol; k++) { const c = ws.getCell(i, C0 + k + 1); c.border = { left: { style: 'hair', color: { argb: GRID } }, bottom: { style: 'hair', color: { argb: GRID } } }; }
   const tl = colL(C0) + '6:' + lastL + end, H0 = colL(C0);

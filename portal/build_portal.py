@@ -58,29 +58,80 @@ def inline(folder: str, entry: str = 'index.html') -> str:
 
 
 def home(conf: dict, mods: list) -> str:
-    title = html.escape(conf.get('site_title', 'TPM Portal'))
-    cards = '\n'.join(
-        f'<a class="card" href="{html.escape(m["id"])}/{html.escape(m.get("entry", "index.html"))}">'
-        f'<b>{html.escape(m["name"])}</b><span>{html.escape(m.get("description", ""))}</span>'
-        f'<em>{html.escape(m.get("audience", ""))} · v{html.escape(m.get("version", "1"))}</em></a>' for m in mods)
-    return f'''<!doctype html>
+    """The portal shell: the desk's left sidebar (brand, one entry per module) and the module in a frame."""
+    e = html.escape
+    title, sub = e(conf.get('site_title', 'Project Manager Desk')), e(conf.get('site_subtitle', 'Tools for project managers'))
+    intro = e(conf.get('site_intro', 'Tools for project managers. Everything runs in your browser: nothing you type is sent anywhere.'))
+    nav = '\n'.join(f'<a class="mod" href="#{e(m["id"])}" data-id="{e(m["id"])}" data-src="{e(m["id"])}/{e(m.get("entry", "index.html"))}">{e(m["name"])}</a>' for m in mods)
+    cards = '\n'.join(f'<a class="card" href="#{e(m["id"])}"><b>{e(m["name"])}</b><span>{e(m.get("description", ""))}</span>'
+                      f'<em>{e(m.get("audience", ""))} · v{e(m.get("version", "1"))}</em></a>' for m in mods)
+    return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
 <style>
-:root{{--paper:#EDF0F3;--card:#F8FAFB;--ink:#112032;--soft:#5A6B7C;--rule:#C7D0D8;--accent:#58EA9D}}
-@media (prefers-color-scheme:dark){{:root{{--paper:#0C1620;--card:#14222F;--ink:#E4ECF2;--soft:#8FA2B3;--rule:#24384B}}}}
-*{{box-sizing:border-box}} body{{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 Archivo,system-ui,-apple-system,"Segoe UI",sans-serif}}
-main{{max-width:960px;margin:0 auto;padding:40px 16px 64px}} h1{{font-size:clamp(28px,4vw,38px);margin:0 0 6px;letter-spacing:-.5px}}
-p{{color:var(--soft);margin:0 0 26px}} .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:14px}}
+:root{{--primary:#112032;--accent:#58EA9D;--paper:#EDF0F3;--card:#F8FAFB;--ink:#112032;--soft:#5A6B7C;--rule:#C7D0D8;--rail:#112032;--rail-ink:#D7E2EA}}
+@media (prefers-color-scheme:dark){{:root:not([data-theme="light"]){{--paper:#0C1620;--card:#14222F;--ink:#E4ECF2;--soft:#8FA2B3;--rule:#24384B;--rail:#0A121B;--rail-ink:#CFDCE6}}}}
+:root[data-theme="dark"]{{--paper:#0C1620;--card:#14222F;--ink:#E4ECF2;--soft:#8FA2B3;--rule:#24384B;--rail:#0A121B;--rail-ink:#CFDCE6}}
+*{{box-sizing:border-box}} html,body{{height:100%}}
+body{{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex}}
+.rail{{width:224px;flex:0 0 224px;background:var(--rail);color:var(--rail-ink);display:flex;flex-direction:column;height:100vh;position:sticky;top:0}}
+.brand{{padding:22px 20px 16px;border-bottom:1px solid rgba(255,255,255,.12);color:inherit;text-decoration:none}}
+.brand b{{display:block;font-size:16px;font-weight:700;color:#fff;letter-spacing:-.2px}} .brand span{{display:block;font-size:12.5px;color:var(--accent);margin-top:3px;font-weight:500}}
+nav{{padding:12px 8px;flex:1;overflow-y:auto}}
+nav .lbl{{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:#7E8A95;padding:6px 12px 4px}}
+nav a{{display:block;color:var(--rail-ink);text-decoration:none;font-weight:600;font-size:14.5px;padding:9px 12px;border-radius:8px;border-left:3px solid transparent;margin:2px 0}}
+nav a:hover{{background:rgba(255,255,255,.08)}} nav a[aria-current="page"]{{background:rgba(88,234,157,.14);border-left-color:var(--accent);color:#fff}}
+nav a:focus-visible,.foot button:focus-visible{{outline:2px solid var(--accent);outline-offset:2px}}
+.foot{{padding:12px 16px 20px;font-size:12px;color:#7E8A95;border-top:1px solid rgba(255,255,255,.12)}}
+.foot button{{font:inherit;background:none;border:0;padding:0;color:#7E8A95;text-decoration:underline;cursor:pointer}}
+main{{flex:1;min-width:0;height:100vh;overflow:auto}}
+#frame{{display:block;width:100%;height:100vh;border:0}}
+.home{{max-width:960px;margin:0 auto;padding:40px 24px 64px}} h1{{font-size:clamp(28px,4vw,36px);margin:0 0 6px;letter-spacing:-.5px}}
+.home p{{color:var(--soft);margin:0 0 26px;max-width:70ch}} .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:14px}}
 .card{{display:flex;flex-direction:column;gap:6px;padding:18px 20px;border:1px solid var(--rule);border-radius:12px;background:var(--card);color:inherit;text-decoration:none}}
 .card:hover,.card:focus-visible{{border-color:var(--accent);outline:none}} .card b{{font-size:17px}} .card span{{color:var(--soft)}} .card em{{font-style:normal;font-size:12.5px;color:var(--soft)}}
-footer{{margin-top:40px;font-size:12.5px;color:var(--soft)}}
+[hidden]{{display:none!important}}
+@media(max-width:860px){{
+  body{{flex-direction:column}} .rail{{width:auto;flex:none;height:auto;position:sticky;top:0;z-index:5;padding:10px 12px 8px}}
+  .brand{{border:0;padding:0 0 8px}} .brand span,.foot,nav .lbl{{display:none}}
+  nav{{display:flex;gap:6px;padding:0;overflow-x:auto}} nav a{{white-space:nowrap;padding:7px 12px;font-size:13.5px;border:1px solid rgba(255,255,255,.14);margin:0}}
+  main{{height:auto;overflow:visible}} #frame{{height:calc(100vh - 96px)}} .home{{padding:22px 16px 48px}}
+}}
 </style></head>
-<body><main><h1>{title}</h1><p>{html.escape(conf.get("site_intro", "Tools for project managers. Everything runs in your browser: nothing you type is sent anywhere."))}</p>
-<div class="grid">
+<body>
+<aside class="rail">
+  <a class="brand" href="#"><b>{title}</b><span>{sub}</span></a>
+  <nav aria-label="Modules"><a href="#" data-id="" aria-current="page">Home</a><div class="lbl">Modules</div>
+{nav}
+  </nav>
+  <div class="foot">Runs in your browser: nothing is sent anywhere.<br><button id="theme">Switch theme</button></div>
+</aside>
+<main>
+  <section class="home" id="home"><h1>{title}</h1><p>{intro}</p><div class="grid">
 {cards}
-</div><footer>Built from the TPM Desk.</footer></main></body></html>
-'''
+  </div></section>
+  <iframe id="frame" title="Module" hidden></iframe>
+</main>
+<script>
+(function(){{
+  var frame=document.getElementById('frame'), home=document.getElementById('home');
+  function show(){{
+    var id=location.hash.slice(1), a=id && document.querySelector('nav a.mod[data-id="'+id+'"]');
+    document.querySelectorAll('nav a').forEach(function(x){{ x.setAttribute('aria-current', (a ? x===a : x.dataset.id==='') ? 'page' : 'false'); }});
+    if(a){{ if(frame.getAttribute('src')!==a.dataset.src) frame.src=a.dataset.src; frame.title=a.textContent; frame.hidden=false; home.hidden=true; document.title=a.textContent+' · {title}'; }}
+    else {{ frame.hidden=true; home.hidden=false; document.title='{title}'; }}
+  }}
+  window.addEventListener('hashchange', show); show();
+  var root=document.documentElement;
+  try{{ var t=localStorage.getItem('pmd-theme'); if(t) root.setAttribute('data-theme',t); }}catch(e){{}}
+  document.getElementById('theme').onclick=function(){{
+    var cur=root.getAttribute('data-theme'), dark=cur ? cur==='dark' : matchMedia('(prefers-color-scheme:dark)').matches;
+    root.setAttribute('data-theme', dark?'light':'dark'); try{{ localStorage.setItem('pmd-theme', dark?'light':'dark'); }}catch(e){{}}
+  }};
+}})();
+</script>
+</body></html>
+"""
 
 
 def build(conf: dict) -> list:
