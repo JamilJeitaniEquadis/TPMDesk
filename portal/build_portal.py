@@ -120,8 +120,8 @@ def scan(conf: dict) -> list:
     return hits
 
 
-def git(*args, cwd=PUBLIC):
-    subprocess.run(['git', *args], cwd=cwd, check=True)
+def git(*args):
+    subprocess.run(['git', *args], cwd=PUBLIC, check=True)
 
 
 def push(conf: dict, chosen: list):
@@ -143,7 +143,10 @@ def push(conf: dict, chosen: list):
     if subprocess.run(['git', 'diff', '--cached', '--quiet'], cwd=PUBLIC).returncode == 0:
         print('The public portal is already up to date.')
         return
-    git('commit', '-m', 'Publish: ' + ', '.join(f'{m["name"]} {m.get("version", "")}'.strip() for m in chosen))
+    # The public history shows the author: never the work address, always the GitHub "noreply" one from the config.
+    who = ['-c', 'user.name=' + conf.get('commit_name', 'TPM Portal'),
+           '-c', 'user.email=' + conf.get('commit_email', 'noreply@users.noreply.github.com')]
+    git(*who, 'commit', '-m', 'Publish: ' + ', '.join(f'{m["name"]} {m.get("version", "")}'.strip() for m in chosen))
     git('push', 'origin', branch)
     print('Published to', repo)
 

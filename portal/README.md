@@ -22,14 +22,14 @@ In the desk, `app/build.py` embeds each module as one HTML file (sidebar: **Proj
 
 ## Publishing (Jamil only)
 
-1. Once: `copy portal\portal.config.example.json portal\portal.config.json`, then set `public_repo`.
+1. Once: `copy portal\portal.config.example.json portal\portal.config.json` (public repository: https://github.com/JamilJeitaniEquadis/tpm-portal). Commits use the GitHub noreply address set in `commit_email`, never the work address.
 2. In the desk opened with **Open desk.bat**, a **Portal** page appears at the bottom of the sidebar (only on
    a machine that has `portal.config.json`). Tick the modules to publish, then **Build and check** or
    **Publish to the portal**. Or from a terminal: `python portal/build_portal.py --push`.
 3. Every published file is scanned for the `block_words` (client names, `@equadis.com`, server paths...).
    One hit stops the publish.
 
-GitHub Pages serves the public repository: `https://<owner>.github.io/<repository>/`.
+GitHub Pages serves the public repository: https://jamiljeitaniequadis.github.io/tpm-portal/
 
 ## Later: an interface for the clients' project managers (idea, not built)
 

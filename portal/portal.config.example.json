@@ -1,11 +1,27 @@
 {
   "site_title": "TPM Portal",
   "site_intro": "Tools for project managers. Everything runs in your browser: nothing you type is sent anywhere.",
-  "publish": ["project-planner"],
-  "public_repo": "https://github.com/<owner>/<public-repository>.git",
+  "publish": [
+    "project-planner"
+  ],
+  "public_repo": "https://github.com/JamilJeitaniEquadis/tpm-portal.git",
   "branch": "main",
+  "commit_name": "Jamil Jeitani",
+  "commit_email": "333397215+JamilJeitaniEquadis@users.noreply.github.com",
   "block_words": [
-    "@equadis.com", "equadis200", "D:\\batchs", "/shared/Batchs", "integration_interface",
-    "Marionnaud", "Chanel", "ELC", "Estee", "Filorga", "MyOrigines", "Nuxe", "Sisley", "L'Oreal"
+    "@equadis.com",
+    "equadis200",
+    "D:\\batchs",
+    "/shared/Batchs",
+    "integration_interface",
+    "Marionnaud",
+    "Chanel",
+    "ELC",
+    "Estee",
+    "Filorga",
+    "MyOrigines",
+    "Nuxe",
+    "Sisley",
+    "L'Oreal"
   ]
 }
