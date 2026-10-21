@@ -40,5 +40,15 @@ bloc2 = '<script type="application/json" id="sso-files">' + json.dumps(sso, sepa
 html, n = re.subn(r'<script type="application/json" id="sso-files">.*?</script>', lambda m: bloc2, html, count=1, flags=re.S)
 if n != 1:
     raise SystemExit('Bloc #sso-files introuvable dans tpm-desk.html')
+# les modules du portail (portal/modules/*), chacun en un seul HTML : la page « Project planner » du desk
+import sys
+sys.path.insert(0, os.path.join(ICI, '..', 'portal'))
+import build_portal
+mods = {mid: base64.b64encode(build_portal.inline(m['folder'], m.get('entry', 'index.html')).encode('utf-8')).decode('ascii')
+        for mid, m in build_portal.modules().items()}
+bloc3 = '<script type="application/json" id="modules">' + json.dumps(mods, separators=(',', ':')) + '</script>'
+html, n = re.subn(r'<script type="application/json" id="modules">.*?</script>', lambda m: bloc3, html, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('Bloc #modules introuvable dans tpm-desk.html')
 open(PAGE, 'w', encoding='utf-8').write(html)
-print(f"{len(bundle)} fichiers intégrés, page : {os.path.getsize(PAGE) // 1024} Ko")
+print(f"{len(bundle)} fichiers intégrés, {len(mods)} module(s), page : {os.path.getsize(PAGE) // 1024} Ko")

@@ -10,7 +10,8 @@ requires a header that other web pages can't send without the browser asking thi
 first. Claude Code runs with its tools off, in an empty folder: it only writes text back.
 
 It also lets the desk start and stop Voice summary (voice/voice_summary.py, in its own window) and
-open the recordings folder or the last report: fixed commands only, nothing typed is run as a command.
+open the recordings folder or the last report, and, on the machine that has portal/portal.config.json,
+save the portal settings and run portal/build_portal.py: fixed commands only, nothing typed is run as a command.
 """
 import json
 import re
@@ -189,6 +190,51 @@ def voice_open(what: str) -> dict:
     return {'opened': os.path.basename(last)}
 
 
+# ---------- Portal: publication settings, on the machine that has portal/portal.config.json ----------
+
+PORTAL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'portal')
+PORTAL_CONFIG = os.path.join(PORTAL, 'portal.config.json')
+
+
+def portal_modules() -> list:
+    out, root = [], os.path.join(PORTAL, 'modules')
+    for name in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+        meta = os.path.join(root, name, 'module.json')
+        if os.path.exists(meta):
+            m = json.load(open(meta, encoding='utf-8'))
+            out.append({k: m.get(k) for k in ('id', 'name', 'description', 'version')})
+    return out
+
+
+def portal_config() -> dict:
+    if not os.path.exists(PORTAL_CONFIG):
+        return {'exists': False}
+    return {'exists': True, 'config': json.load(open(PORTAL_CONFIG, encoding='utf-8')), 'modules': portal_modules()}
+
+
+def portal_save(conf) -> dict:
+    if not os.path.exists(PORTAL_CONFIG):
+        raise LinkError('not_found', 'No portal configuration on this machine.')
+    if not isinstance(conf, dict):
+        raise LinkError('invalid_request', 'Bad configuration.')
+    ids = {m['id'] for m in portal_modules()}
+    old = json.load(open(PORTAL_CONFIG, encoding='utf-8'))
+    old['publish'] = [m for m in conf.get('publish', []) if m in ids]
+    old['public_repo'] = str(conf.get('public_repo') or '').strip()
+    old['block_words'] = [str(w).strip() for w in conf.get('block_words', []) if str(w).strip()]
+    json.dump(old, open(PORTAL_CONFIG, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    return {'config': old}
+
+
+def portal_run(push: bool) -> dict:
+    if not os.path.exists(PORTAL_CONFIG):
+        raise LinkError('not_found', 'No portal configuration on this machine.')
+    cmd = [sys.executable, os.path.join(PORTAL, 'build_portal.py'), '--pause'] + (['--push'] if push else [])
+    flags = subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
+    subprocess.Popen(cmd, cwd=os.path.dirname(PORTAL), creationflags=flags)
+    return {'started': True}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = 'TPMDeskClaudeLink/1'
 
@@ -225,6 +271,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {'ok': True, 'claude_code': bool(claude_cli()), 'voice': True})
         elif self.path == '/voice/status':
             self._send(200, voice_status())
+        elif self.path == '/portal/config':
+            self._send(200, portal_config())
         else:
             self._send(404, {'code': 'not_found'})
 
@@ -240,6 +288,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, voice_start(req.get('client'), req.get('project'), req.get('author'), req.get('kind')))
             if self.path == '/voice/stop':
                 return self._send(200, voice_stop())
+            if self.path == '/portal/save':
+                return self._send(200, portal_save(req.get('config')))
+            if self.path == '/portal/run':
+                return self._send(200, portal_run(bool(req.get('push'))))
             if self.path == '/voice/open':
                 return self._send(200, voice_open(str(req.get('what') or 'last')))
             if self.path != '/sample':

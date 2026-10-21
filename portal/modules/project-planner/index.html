@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Planner</title>
+<style>
+:root{
+  --primary:#112032; --accent:#58EA9D;
+  --paper:#EDF0F3; --card:#F8FAFB; --ink:#112032; --ink-soft:#5A6B7C; --rule:#C7D0D8; --field:#FFFFFF;
+  --ok:#0F7A55; --warn:#8A5E10; --stop:#9E3A2C; --ok-bg:#DFF6EA; --warn-bg:#F5EBD8; --stop-bg:#F4E1DD;
+  --btn-bg:#112032; --btn-ink:#FFFFFF; --phase:#E3E9EF;
+  --bar-ot:#4472C4; --bar-co:#2E9E6B; --bar-ns:#A9B4BF; --bar-late:#C0504D; --bar-ms:#D9A945; --bar-ph:#112032;
+}
+*,*::before,*::after{box-sizing:border-box}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0C1620; --card:#14222F; --ink:#E4ECF2; --ink-soft:#8FA2B3; --rule:#24384B; --field:#0F1B26;
+    --ok:#58EA9D; --warn:#D9A945; --stop:#E08877; --ok-bg:#0F3026; --warn-bg:#2B2418; --stop-bg:#2E1E1B;
+    --btn-bg:#58EA9D; --btn-ink:#0B1620; --phase:#1B2C3B; --bar-ph:#CFDCE6;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C1620; --card:#14222F; --ink:#E4ECF2; --ink-soft:#8FA2B3; --rule:#24384B; --field:#0F1B26;
+  --ok:#58EA9D; --warn:#D9A945; --stop:#E08877; --ok-bg:#0F3026; --warn-bg:#2B2418; --stop-bg:#2E1E1B;
+  --btn-bg:#58EA9D; --btn-ink:#0B1620; --phase:#1B2C3B; --bar-ph:#CFDCE6;
+}
+html{height:100%}
+body{margin:0; background:var(--paper); color:var(--ink); font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased}
+main{max-width:1240px; margin:0 auto; padding:28px 16px 64px}
+h1{font-size:clamp(26px,3.4vw,34px); line-height:1.1; letter-spacing:-.5px; margin:0 0 6px}
+.lede{color:var(--ink-soft); margin:0 0 18px; max-width:72ch}
+.card{background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:18px 20px; margin:14px 0}
+.card > h2{display:flex; align-items:center; gap:10px; margin:0 0 12px; font-size:17px}
+.card > h2 > b{display:inline-flex; flex:none; width:26px; height:26px; border-radius:50%; align-items:center; justify-content:center;
+  background:var(--primary); color:#fff; font-size:13px}
+.card > h2 .sub{font-weight:400; font-size:13.5px; color:var(--ink-soft); margin-left:auto}
+.note{font-size:13.5px; color:var(--ink-soft)}
+.btn{font:inherit; font-size:14px; font-weight:600; background:var(--btn-bg); color:var(--btn-ink); border:1px solid transparent;
+  border-radius:7px; padding:8px 16px; cursor:pointer}
+.btn.ghost{background:none; color:var(--ink); border-color:var(--rule)}
+.btn:disabled{opacity:.5; cursor:default}
+.btn.sm{font-size:13px; padding:5px 11px}
+.row{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr)); gap:0 14px}
+label.f{display:flex; flex-direction:column; gap:3px; margin:0 0 10px}
+label.f > span{font-size:12.5px; font-weight:600; color:var(--ink-soft)}
+input,select,textarea{font:inherit; font-size:14px; color:var(--ink); background:var(--field); border:1px solid var(--rule); border-radius:6px; padding:7px 9px; min-width:0}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.miss{border-color:var(--stop)!important; background:var(--stop-bg)}
+.seg{display:inline-flex; border:1px solid var(--rule); border-radius:9px; padding:3px; background:var(--card)}
+.seg button{font:inherit; font-size:13.5px; font-weight:600; border:0; background:none; color:var(--ink-soft); padding:5px 12px; border-radius:6px; cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--primary); color:#fff}
+.toolbar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:0 0 4px}
+.toolbar select{max-width:280px}
+.scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+table{border-collapse:collapse; width:100%}
+th{font-size:12px; text-transform:uppercase; letter-spacing:.3px; color:var(--ink-soft); text-align:left; font-weight:600; padding:4px 4px; white-space:nowrap}
+td{padding:3px 4px; vertical-align:middle}
+td input,td select{width:100%; padding:5px 6px; font-size:13.5px}
+td input[type=date]{min-width:128px}
+td.num input{width:58px; text-align:right}
+.roles td:first-child input{width:80px; font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; text-transform:uppercase}
+.phase{border:1px solid var(--rule); border-radius:9px; margin:12px 0; overflow:hidden}
+.phead{display:flex; gap:8px; align-items:center; background:var(--phase); padding:8px 10px}
+.phead input{flex:1; font-weight:700; font-size:15px; background:transparent; border-color:transparent}
+.phead input:hover{border-color:var(--rule)}
+.phead .note{white-space:nowrap}
+.tasks{min-width:1180px} .tasks td.name{min-width:250px} .tasks td.name input{min-width:240px} .tasks select{min-width:118px}
+.icon{font:inherit; font-size:14px; line-height:1; width:28px; height:28px; border-radius:6px; border:1px solid transparent; background:none; color:var(--ink-soft); cursor:pointer; flex:none}
+.icon:hover{border-color:var(--rule); color:var(--ink)}
+.icon.del:hover{color:var(--stop)}
+.acts{white-space:nowrap}
+.pick{display:flex; align-items:center; gap:4px; width:100%; min-height:31px; font:inherit; font-size:13px; text-align:left; padding:4px 6px;
+  border:1px solid var(--rule); border-radius:6px; background:var(--field); color:var(--ink); cursor:pointer; min-width:84px}
+.pick .ph{color:var(--ink-soft)}
+.pick.miss{border-color:var(--stop)}
+.menu{position:fixed; z-index:20; background:var(--card); border:1px solid var(--rule); border-radius:9px; box-shadow:0 8px 28px rgba(0,0,0,.18); padding:6px; max-height:320px; overflow:auto; min-width:240px}
+.menu label{display:flex; gap:8px; align-items:center; padding:5px 8px; border-radius:6px; cursor:pointer; font-size:13.5px}
+.menu label:hover{background:var(--phase)}
+.menu code{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; font-size:12.5px; min-width:48px}
+.menu .t{color:var(--ink-soft)}
+.ms{accent-color:var(--bar-ms); width:16px; height:16px}
+.add{margin:8px 10px 10px}
+.checks{list-style:none; margin:0; padding:0}
+.checks li{display:flex; gap:8px; align-items:flex-start; padding:5px 0; font-size:14px; border-bottom:1px solid var(--rule)}
+.checks li:last-child{border-bottom:0}
+.checks .tag{font-size:11.5px; font-weight:700; padding:1px 7px; border-radius:999px; flex:none; margin-top:2px}
+.checks .err .tag{background:var(--stop-bg); color:var(--stop)}
+.checks .wrn .tag{background:var(--warn-bg); color:var(--warn)}
+.checks button{font:inherit; font-size:14px; background:none; border:0; padding:0; color:var(--ink); text-align:left; cursor:pointer; text-decoration:underline; text-decoration-color:var(--rule)}
+.allgood{display:flex; gap:8px; align-items:center; color:var(--ok); font-weight:600}
+.gantt{font-size:12.5px; min-width:760px}
+.grow{display:grid; grid-template-columns:240px 1fr; align-items:center; min-height:22px}
+.grow .lbl{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:8px}
+.grow.ph .lbl{font-weight:700}
+.track{position:relative; height:14px}
+.track .bar{position:absolute; top:2px; height:10px; border-radius:3px}
+.track .dia{position:absolute; top:0; width:12px; height:12px; transform:translateX(-6px) rotate(45deg); background:var(--bar-ms)}
+.months{position:relative; height:20px; border-bottom:1px solid var(--rule); margin-bottom:4px}
+.months span{position:absolute; top:0; font-size:11.5px; color:var(--ink-soft); border-left:1px solid var(--rule); padding-left:4px; white-space:nowrap}
+.today{position:absolute; top:0; bottom:0; width:2px; background:var(--stop); opacity:.6}
+.gwrap{position:relative}
+.legend{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12.5px; color:var(--ink-soft); margin:8px 0 0}
+.legend i{display:inline-block; width:12px; height:10px; border-radius:2px; margin-right:5px; vertical-align:middle}
+.export{display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; margin-top:14px; padding-top:14px; border-top:1px solid var(--rule)}
+.export label{display:flex; gap:7px; align-items:center; font-weight:600; cursor:pointer}
+.export input[type=checkbox]{width:17px; height:17px; accent-color:var(--ok)}
+.status{font-size:14px}
+.status.ok{color:var(--ok)} .status.ko{color:var(--stop)}
+.shift{display:none; margin:-2px 0 10px; padding:8px 12px; border-radius:8px; background:var(--warn-bg); color:var(--warn); font-size:14px}
+.shift.on{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+@media (max-width:640px){ main{padding:18px 12px 48px} .card{padding:14px} .grow{grid-template-columns:150px 1fr} }
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Project planner</h1>
+  <p class="lede">One template for every plan. Fill it in, let the checks catch what is missing, then export the RACI, the Gantt, or both, in one Excel file.</p>
+
+  <div class="toolbar">
+    <select id="tpl" aria-label="Template"></select>
+    <button class="btn ghost" id="tplGo">Start from this template</button>
+    <button class="btn ghost" id="openBtn">Open a saved plan</button>
+    <input type="file" id="openFile" accept=".xlsx,.json" hidden>
+    <span class="note" id="openNote"></span>
+  </div>
+
+  <section class="card" id="cProject">
+    <h2><b>1</b>Project</h2>
+    <div class="grid">
+      <label class="f"><span>Client *</span><input id="pClient" placeholder="Client name" autocomplete="off"></label>
+      <label class="f"><span>Project *</span><input id="pName" placeholder="SSO, data interface, DSA…" autocomplete="off"></label>
+      <label class="f"><span>Project manager *</span><input id="pPm" placeholder="Your name" autocomplete="name"></label>
+      <label class="f"><span>Start date *</span><input type="date" id="pStart"></label>
+    </div>
+    <div class="shift" id="shift"><span id="shiftTxt"></span><button class="btn sm" id="shiftGo">Move the whole plan</button><button class="btn ghost sm" id="shiftNo">Keep the dates</button></div>
+    <div class="row">
+      <span class="note">Excel in</span><div class="seg" id="pLang"><button data-v="en" aria-pressed="true">English</button><button data-v="fr" aria-pressed="false">Français</button></div>
+      <span class="note">Gantt by</span><div class="seg" id="pScale"><button data-v="week" aria-pressed="true">Week</button><button data-v="day" aria-pressed="false">Day</button></div>
+    </div>
+  </section>
+
+  <section class="card" id="cRoles">
+    <h2><b>2</b>Roles<span class="sub">The codes you use in the RACI</span></h2>
+    <div class="scroll"><table class="roles"><thead><tr><th>Code</th><th>Role</th><th>Name</th><th>Side</th><th></th></tr></thead><tbody id="roles"></tbody></table></div>
+    <button class="btn ghost sm" id="roleAdd" style="margin-top:8px">+ Add a role</button>
+  </section>
+
+  <section class="card" id="cPlan">
+    <h2><b>3</b>Plan<span class="sub" id="planSum"></span></h2>
+    <p class="note" style="margin:0 0 4px">R does the work · A owns it and approves (one per task) · C is asked before · I is told after. ◆ marks a milestone (one day).</p>
+    <div id="phases"></div>
+    <button class="btn ghost" id="phaseAdd">+ Add a phase</button>
+  </section>
+
+  <section class="card" id="cCheck">
+    <h2><b>4</b>Check and export</h2>
+    <div id="checks"></div>
+    <h3 style="font-size:14px; margin:16px 0 6px">Gantt preview</h3>
+    <div class="scroll"><div class="gantt" id="preview"></div></div>
+    <div class="legend"><span><i style="background:var(--bar-ot)"></i>On track</span><span><i style="background:var(--bar-co)"></i>Completed</span><span><i style="background:var(--bar-ns)"></i>Not started</span><span><i style="background:var(--bar-late)"></i>Late or blocked</span><span><i style="background:var(--bar-ms)"></i>Milestone</span><span><i style="background:var(--stop); width:2px"></i>Today</span></div>
+    <div class="export">
+      <span class="note">Send</span>
+      <label><input type="checkbox" id="xRaci" checked> RACI</label>
+      <label><input type="checkbox" id="xGantt" checked> Gantt</label>
+      <button class="btn" id="xGo">Export Excel</button>
+      <span class="status" id="xOut"></span>
+    </div>
+    <p class="note">The Excel keeps the plan inside it: open it here later with <b>Open a saved plan</b> to update it.</p>
+  </section>
+</main>
+<div class="menu" id="menu" hidden></div>
+<script src="vendor/exceljs.min.js"></script>
+<script src="templates.js"></script>
+<script src="planner.js"></script>
+</body>
+</html>

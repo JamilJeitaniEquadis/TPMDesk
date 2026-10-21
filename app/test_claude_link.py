@@ -83,3 +83,17 @@ def test_voice_start_stop_and_status(tmp_path, monkeypatch, server):
     assert st['summary']['summary']['args'][-2:] == ['--kind', 'client'] and 'My Origines' in st['summary']['summary']['args']
     assert call(server + '/voice/open', 'null', body={'what': 'recordings'})[0] == 200 and opened
     assert call(server + '/voice/start', 'https://evil.example', body=body)[0] == 403
+
+
+def test_portal_settings(tmp_path, monkeypatch, server):
+    (tmp_path / 'modules' / 'm1').mkdir(parents=True)
+    (tmp_path / 'modules' / 'm1' / 'module.json').write_text(json.dumps({'id': 'm1', 'name': 'M1', 'version': '1'}))
+    monkeypatch.setattr(cl, 'PORTAL', str(tmp_path))
+    monkeypatch.setattr(cl, 'PORTAL_CONFIG', str(tmp_path / 'portal.config.json'))
+    assert call(server + '/portal/config', 'null')[1] == {'exists': False}
+    (tmp_path / 'portal.config.json').write_text(json.dumps({'site_title': 'T', 'publish': []}))
+    st = call(server + '/portal/config', 'null')[1]
+    assert st['exists'] and st['modules'][0]['id'] == 'm1'
+    saved = call(server + '/portal/save', 'null', body={'config': {'publish': ['m1', 'nope'], 'public_repo': ' r ', 'block_words': ['x', ' ']}})[1]
+    assert saved['config'] == {'site_title': 'T', 'publish': ['m1'], 'public_repo': 'r', 'block_words': ['x']}
+    assert call(server + '/portal/config', 'https://evil.example')[0] == 403

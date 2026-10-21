@@ -1,0 +1,8 @@
+{
+  "id": "project-planner",
+  "name": "Project planner",
+  "description": "One standard plan for every project: roles, phases, RACI and dates, with checks, then an Excel with the RACI and/or the Gantt.",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "audience": "Project managers"
+}
