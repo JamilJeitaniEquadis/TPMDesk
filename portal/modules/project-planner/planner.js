@@ -40,7 +40,7 @@ const newTask = (o = {}) => ({ id: uid(), name: '', status: 'ns', r: [], a: '', 
 function fromTemplate(tp, start) {
   const s0 = dn(start);
   return {
-    v: 1, project: { client: '', name: '', pm: '', start, lang: 'en', scale: 'week' },
+    v: 1, id: uid() + uid(), project: { client: '', name: '', pm: '', start, lang: 'en', scale: 'week' },
     roles: window.PLANNER_ROLES.map(r => ({ id: uid(), name: '', ...r })),
     phases: tp.phases.map(p => ({ id: uid(), name: p.name, tasks: p.tasks.map(x => newTask({
       name: x.name, r: codes(x.r), a: codes(x.a)[0] || '', c: codes(x.c), i: codes(x.i), milestone: !!x.milestone,
@@ -456,7 +456,8 @@ $('#openFile').onchange = async e => {
       js = ''; ws.eachRow(r => { js += String(r.getCell(1).value || ''); });
     }
     const o = JSON.parse(js); if (!o || o.v !== 1 || !Array.isArray(o.phases)) throw new Error('unknown plan format');
-    S = o; renderAll(); note.textContent = 'Opened ' + f.name;
+    if (!o.id) o.id = uid() + uid();
+    S = o; S.file = null; renderAll(); note.textContent = 'Opened ' + f.name;
   } catch (err) { note.textContent = 'Could not open ' + f.name + ': ' + (err.message || err); }
 };
 
@@ -469,7 +470,7 @@ $('#tplGo').onclick = () => {
   const filled = allTasks().some(t => t.name);
   if (filled && !confirm('Replace the current plan with the "' + tp.name + '" template? Project details are kept.')) return;
   const keep = S && S.project;
-  S = fromTemplate(tp, (keep && keep.start) || ds(monday(todayN())));
+  S = fromTemplate(tp, (keep && keep.start) || ds(monday(todayN()))); S.file = null;
   if (keep) Object.assign(S.project, keep);
   renderAll();
 };
@@ -484,5 +485,85 @@ try {
 } catch (e) { /* another origin: keep the system theme */ }
 
 S = fromTemplate(window.PLANNER_TEMPLATES.find(x => x.id === 'interface'), ds(monday(todayN())));
+/* ---------- project archive: a SharePoint folder synced on the laptop, through the TPM Desk's Claude link ----------
+   Only when the planner runs inside the desk opened from its folder (file://). On the public portal the
+   link refuses the call, and the card offers the SharePoint folder link instead. */
+const LINK = 'http://127.0.0.1:8765';
+const link = async (path, body) => {
+  const r = await fetch(LINK + path, body === undefined ? { headers: { 'X-TPM-Desk': '1' } }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-TPM-Desk': '1' }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(d.message || 'The desk link refused.'); e.code = d.code; throw e; } return d;
+};
+let linked = false, projects = [];
+const arOut = (t, ok) => { const o = $('#arOut'); o.textContent = t || ''; o.className = 'status' + (t ? (ok ? ' ok' : ' ko') : ''); };
+const planFile = () => S.file || safeName(S.project.client + ' - ' + S.project.name + ' - Planning') + '.xlsx';
+const b64of = buf => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+async function archiveRefresh() {
+  let d;
+  try { d = await link('/archive'); } catch (e) { return; }
+  $('#arPick').hidden = !!d.projects; $('#arList').hidden = !d.projects;
+  if (!d.projects) { $('#arPath').value = d.archive_dir || ''; $('#arSub').textContent = 'Choose the archive folder'; return; }
+  projects = d.projects; $('#arSub').textContent = projects.length + ' project' + (projects.length !== 1 ? 's' : '') + ' · ' + d.archive_dir;
+  drawProjects();
+}
+function drawProjects() {
+  const q = $('#arFind').value.trim().toLowerCase(), tb = $('#arRows'); tb.innerHTML = '';
+  const list = projects.filter(p => !q || (p.client + ' ' + p.project + ' ' + p.pm).toLowerCase().includes(q));
+  if (!list.length) { const tr = el('tr'), td = el('td', 'note', projects.length ? 'No project matches.' : 'No plan saved yet: build one below and press Save to archive.'); td.colSpan = 7; tr.appendChild(td); tb.appendChild(tr); return; }
+  list.forEach(p => {
+    const tr = el('tr', S && p.id === S.id ? 'cur' : null), pc = p.tasks ? Math.round(p.done / p.tasks * 100) : 0;
+    [p.client, p.project, p.pm, (p.start ? fmt(p.start) : '') + (p.end ? ' → ' + fmt(p.end) : '')].forEach(v => tr.appendChild(el('td', null, v)));
+    const pr = el('td'), bar = el('span', 'bar100'), fill = el('i'); fill.style.width = pc + '%'; bar.appendChild(fill); pr.append(bar, p.done + ' / ' + p.tasks); tr.appendChild(pr);
+    tr.appendChild(el('td', 'note', new Date(p.modified * 1000).toLocaleDateString(L[(S && S.project.lang) || 'en'].locale)));
+    const a = el('td'), b = el('button', 'btn sm', S && p.id === S.id ? 'Open again' : 'Open'); b.onclick = () => openArchived(p.file); a.appendChild(b); tr.appendChild(a);
+    tb.appendChild(tr);
+  });
+}
+async function openArchived(file) {
+  const dirty = S && S.project.client && !(projects.find(p => p.id === S.id));   // a plan someone started, never saved
+  if (dirty && !confirm('The plan on screen is not saved in the archive. Open "' + file + '" anyway?')) return;
+  try {
+    const d = await link('/archive/read', { file });
+    const raw = Uint8Array.from(atob(d.data), c => c.charCodeAt(0));
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(raw.buffer);
+    const ws = wb.getWorksheet('_plan'); if (!ws) throw new Error('no plan inside');
+    let js = ''; ws.eachRow(r => { js += String(r.getCell(1).value || ''); });
+    const o = JSON.parse(js); if (!o.id) o.id = uid() + uid();
+    S = o; S.file = file; renderAll(); drawProjects(); arOut('Opened ' + file, true);
+    $('#cProject').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) { arOut('Could not open ' + file + ': ' + (e.message || e)); }
+}
+async function archiveSave(overwrite) {
+  if (!S.project.client || !S.project.name) { arOut('Give the client and the project a name first (step 1).'); focusKey(!S.project.client ? 'p:client' : 'p:name'); return; }
+  const file = planFile(), out = $('#xOut');
+  try {
+    const keep = S.file; S.file = null;                          // the file name is not part of the plan itself
+    const buf = await buildWorkbook({ raci: true, gantt: allTasks().some(t => dn(t.start) != null) }); S.file = keep;
+    await link('/archive/save', { file, data: b64of(buf), id: S.id, overwrite: !!overwrite });
+    S.file = file; out.className = 'status ok'; out.textContent = 'Saved in the archive: ' + file;
+    archiveRefresh();
+  } catch (e) {
+    if (e.code === 'exists' && confirm(e.message + ' Replace it with this plan?')) return archiveSave(true);
+    out.className = 'status ko'; out.textContent = 'Not saved: ' + (e.message || e);
+  }
+}
+$('#xSave').onclick = () => archiveSave(false);
+$('#arUse').onclick = () => link('/archive/folder', { path: $('#arPath').value }).then(() => { arOut('Archive folder saved on this laptop.', true); archiveRefresh(); }).catch(e => arOut(e.message));
+$('#arChange').onclick = () => { $('#arPick').hidden = false; $('#arList').hidden = true; $('#arPath').focus(); };
+$('#arDir').onclick = () => link('/archive/open', {}).catch(e => arOut(e.message));
+$('#arFind').oninput = drawProjects;
+$('#arNew').onclick = () => { $('#tpl').focus(); $('#tpl').scrollIntoView({ behavior: 'smooth', block: 'center' }); arOut('Pick a template above, then press Start from this template.', true); };
+/* not linked: the SharePoint folder link, kept in this browser only */
+const URLKEY = 'planner-archive-url';
+const setUrl = v => { const a = $('#arGo'); if (/^https:\/\//i.test(v)) { a.href = v; a.removeAttribute('aria-disabled'); a.style.opacity = ''; } else { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); a.style.opacity = '.5'; } };
+try { $('#arUrl').value = localStorage.getItem(URLKEY) || ''; } catch (e) { /* no storage here */ }
+setUrl($('#arUrl').value);
+$('#arUrl').oninput = () => { const v = $('#arUrl').value.trim(); setUrl(v); try { localStorage.setItem(URLKEY, v); } catch (e) { /* no storage here */ } };
+(async () => {
+  if (location.protocol !== 'file:' && !(location.protocol === 'about:' && (() => { try { return window.parent.location.protocol === 'file:'; } catch (e) { return false; } })())) return;
+  try { const h = await link('/health'); if (!h.archive) return; } catch (e) { return; }
+  linked = true; $('#arLinked').hidden = false; $('#arOffline').hidden = true; $('#xSave').hidden = false;
+  archiveRefresh();
+})();
 renderAll();
 })();

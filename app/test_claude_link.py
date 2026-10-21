@@ -97,3 +97,29 @@ def test_portal_settings(tmp_path, monkeypatch, server):
     saved = call(server + '/portal/save', 'null', body={'config': {'publish': ['m1', 'nope'], 'public_repo': ' r ', 'block_words': ['x', ' ']}})[1]
     assert saved['config'] == {'site_title': 'T', 'publish': ['m1'], 'public_repo': 'r', 'block_words': ['x']}
     assert call(server + '/portal/config', 'https://evil.example')[0] == 403
+
+
+def test_archive(tmp_path, monkeypatch, server):
+    import base64, io, zipfile
+    monkeypatch.setattr(cl, 'SETTINGS', str(tmp_path / 'desk.settings.json'))
+    assert call(server + '/archive', 'null')[1]['code'] == 'no_archive'
+    arch = tmp_path / 'plans'; arch.mkdir()
+    assert call(server + '/archive/folder', 'null', body={'path': str(tmp_path / 'nope')})[0] == 502
+    assert call(server + '/archive/folder', 'null', body={'path': str(arch)})[0] == 200
+    plan = {'v': 1, 'id': 'p1', 'project': {'client': 'Acme', 'name': 'SSO', 'pm': 'J'},
+            'phases': [{'tasks': [{'status': 'co', 'start': '2026-10-19', 'end': '2026-10-20'}, {'status': 'ns', 'start': '2026-10-21', 'end': '2026-11-02'}]}]}
+    js = json.dumps(plan)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:                  # the shape ExcelJS writes: _plan sheet, shared strings
+        z.writestr('xl/workbook.xml', '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="RACI" sheetId="1" r:id="rId1"/><sheet name="_plan" sheetId="2" r:id="rId2" state="veryHidden"/></sheets></workbook>')
+        z.writestr('xl/_rels/workbook.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>')
+        z.writestr('xl/sharedStrings.xml', '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>' + js[:20].replace('&', '&amp;').replace('<', '&lt;') + '</t></si><si><t>' + js[20:].replace('&', '&amp;').replace('<', '&lt;') + '</t></si></sst>')
+        z.writestr('xl/worksheets/sheet2.xml', '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c></row><row r="2"><c r="A2" t="s"><v>1</v></c></row></sheetData></worksheet>')
+    data = base64.b64encode(buf.getvalue()).decode()
+    assert call(server + '/archive/save', 'null', body={'file': '../x.xlsx', 'data': data, 'id': 'p1'})[0] == 502
+    assert call(server + '/archive/save', 'null', body={'file': 'Acme - SSO - Planning.xlsx', 'data': data, 'id': 'p1'})[0] == 200
+    assert call(server + '/archive/save', 'null', body={'file': 'Acme - SSO - Planning.xlsx', 'data': data, 'id': 'p1'})[0] == 200
+    assert call(server + '/archive/save', 'null', body={'file': 'Acme - SSO - Planning.xlsx', 'data': data, 'id': 'other'})[1]['code'] == 'exists'
+    lst = call(server + '/archive', 'null')[1]['projects']
+    assert lst == [dict(lst[0], file='Acme - SSO - Planning.xlsx', id='p1', client='Acme', project='SSO', start='2026-10-19', end='2026-11-02', tasks=2, done=1)]
+    assert call(server + '/archive/read', 'null', body={'file': 'Acme - SSO - Planning.xlsx'})[1]['data'] == data

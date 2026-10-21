@@ -6,3 +6,4 @@ app/voice/settings.json
 portal/portal.config.json
 portal/dist/
 portal/.public/
+app/desk.settings.json

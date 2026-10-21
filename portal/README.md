@@ -20,6 +20,15 @@ portal/
 A module must work on its own: no server, no login, nothing sent anywhere, no client data inside it.
 In the desk, `app/build.py` embeds each module as one HTML file (sidebar: **Project planner**).
 
+## Project archive
+
+The plans are kept as Excel files in the team's SharePoint folder (one file per project, SharePoint keeps
+every version). In the desk opened with **Open desk.bat**, the planner's **My projects** card uses that folder
+synced on the laptop (SharePoint: **Sync** or **Add shortcut to My files**): it lists every project with its
+progress, opens one to continue it, and **Save to archive** writes it back to the same file. The folder is
+chosen once and kept in `app/desk.settings.json` (not committed). On the public portal the card only offers
+the SharePoint folder link and **Open a saved plan**.
+
 ## Publishing (Jamil only)
 
 1. Once: `copy portal\portal.config.example.json portal\portal.config.json` (public repository: https://github.com/JamilJeitaniEquadis/tpm-portal). Commits use the GitHub noreply address set in `commit_email`, never the work address.

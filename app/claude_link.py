@@ -235,6 +235,126 @@ def portal_run(push: bool) -> dict:
     return {'started': True}
 
 
+# ---------- Project archive: the planner's Excel files, in a folder synced with SharePoint ----------
+# One folder, chosen once (desk.settings.json next to this script). Only .xlsx files directly in it are
+# listed, read or written: a name with a path in it is refused.
+
+SETTINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'desk.settings.json')
+MAX_PLAN = 20 * 1024 * 1024
+
+
+def settings() -> dict:
+    try:
+        return json.load(open(SETTINGS, encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+
+
+def archive_dir() -> str:
+    d = settings().get('archive_dir', '')
+    if not d or not os.path.isdir(d):
+        raise LinkError('no_archive', 'Choose the archive folder first.')
+    return d
+
+
+def archive_set(path) -> dict:
+    d = os.path.expandvars(os.path.expanduser(str(path or '').strip().strip('"')))
+    if not d or not os.path.isdir(d):
+        raise LinkError('not_found', 'This folder does not exist on this laptop: ' + (d or '(empty)'))
+    conf = settings()
+    conf['archive_dir'] = os.path.abspath(d)
+    json.dump(conf, open(SETTINGS, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    return {'archive_dir': conf['archive_dir']}
+
+
+def archive_file(name) -> str:
+    name = str(name or '')
+    if not name.lower().endswith('.xlsx') or os.path.basename(name) != name or name.startswith('.') or '..' in name:
+        raise LinkError('invalid_request', 'Not a plan file name: ' + name)
+    return os.path.join(archive_dir(), name)
+
+
+def plan_in(path: str) -> dict | None:
+    """The plan JSON the planner keeps in its hidden _plan sheet (read with the standard library)."""
+    import zipfile
+    import xml.etree.ElementTree as ET
+    ns = {'m': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+          'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+          'p': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+    try:
+        with zipfile.ZipFile(path) as z:
+            wb = ET.fromstring(z.read('xl/workbook.xml'))
+            sheet = next((x for x in wb.iter('{%s}sheet' % ns['m']) if x.get('name') == '_plan'), None)
+            if sheet is None:
+                return None
+            rid = sheet.get('{%s}id' % ns['r'])
+            rels = ET.fromstring(z.read('xl/_rels/workbook.xml.rels'))
+            target = next(x.get('Target') for x in rels.iter('{%s}Relationship' % ns['p']) if x.get('Id') == rid)
+            target = target.lstrip('/')
+            target = target if target.startswith('xl/') else 'xl/' + target
+            shared = []
+            if 'xl/sharedStrings.xml' in z.namelist():
+                for si in ET.fromstring(z.read('xl/sharedStrings.xml')).iter('{%s}si' % ns['m']):
+                    shared.append(''.join(t.text or '' for t in si.iter('{%s}t' % ns['m'])))
+            text = ''
+            for c in ET.fromstring(z.read(target)).iter('{%s}c' % ns['m']):
+                if c.get('t') == 's':
+                    text += shared[int(c.find('m:v', ns).text)]
+                elif c.get('t') == 'inlineStr':
+                    text += ''.join(t.text or '' for t in c.iter('{%s}t' % ns['m']))
+                elif c.find('m:v', ns) is not None:
+                    text += c.find('m:v', ns).text or ''
+        plan = json.loads(text)
+        return plan if isinstance(plan, dict) and plan.get('v') == 1 else None
+    except (OSError, KeyError, ValueError, StopIteration, zipfile.BadZipFile, ET.ParseError, IndexError, AttributeError):
+        return None
+
+
+def archive_list() -> dict:
+    d = archive_dir()
+    out = []
+    for f in os.listdir(d):
+        p = os.path.join(d, f)
+        if not f.lower().endswith('.xlsx') or f.startswith('~$') or not os.path.isfile(p):
+            continue
+        plan = plan_in(p)
+        if not plan:
+            continue
+        tasks = [t for ph in plan.get('phases', []) for t in ph.get('tasks', [])]
+        dates = sorted(x for t in tasks for x in (t.get('start'), t.get('end')) if x)
+        pr = plan.get('project', {})
+        out.append({'file': f, 'id': plan.get('id'), 'client': pr.get('client', ''), 'project': pr.get('name', ''),
+                    'pm': pr.get('pm', ''), 'start': dates[0] if dates else '', 'end': dates[-1] if dates else '',
+                    'tasks': len(tasks), 'done': sum(1 for t in tasks if t.get('status') == 'co'),
+                    'modified': int(os.path.getmtime(p))})
+    out.sort(key=lambda x: -x['modified'])
+    return {'archive_dir': d, 'projects': out}
+
+
+def archive_read(name) -> dict:
+    import base64
+    p = archive_file(name)
+    if not os.path.isfile(p):
+        raise LinkError('not_found', 'No such plan in the archive: ' + name)
+    return {'file': name, 'data': base64.b64encode(open(p, 'rb').read()).decode('ascii')}
+
+
+def archive_save(name, data, plan_id, overwrite: bool) -> dict:
+    import base64
+    p = archive_file(name)
+    if os.path.exists(p) and not overwrite:
+        other = plan_in(p)
+        if not other or other.get('id') != plan_id:
+            raise LinkError('exists', 'Another plan is already saved as ' + name + '.')
+    raw = base64.b64decode(str(data or ''), validate=True)
+    if not raw.startswith(b'PK') or len(raw) > MAX_PLAN:
+        raise LinkError('invalid_request', 'Not an Excel file.')
+    tmp = p + '.tmp'
+    open(tmp, 'wb').write(raw)
+    os.replace(tmp, p)                                    # never a half-written plan in the archive
+    return {'file': name, 'saved': int(os.path.getmtime(p))}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = 'TPMDeskClaudeLink/1'
 
@@ -268,11 +388,16 @@ class Handler(BaseHTTPRequestHandler):
         if not self._checked():
             return
         if self.path == '/health':
-            self._send(200, {'ok': True, 'claude_code': bool(claude_cli()), 'voice': True})
+            self._send(200, {'ok': True, 'claude_code': bool(claude_cli()), 'voice': True, 'archive': True})
         elif self.path == '/voice/status':
             self._send(200, voice_status())
         elif self.path == '/portal/config':
             self._send(200, portal_config())
+        elif self.path == '/archive':
+            try:
+                self._send(200, archive_list())
+            except LinkError as e:
+                self._send(200, {'archive_dir': settings().get('archive_dir', ''), 'projects': None, 'code': e.code, 'message': str(e)})
         else:
             self._send(404, {'code': 'not_found'})
 
@@ -288,6 +413,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, voice_start(req.get('client'), req.get('project'), req.get('author'), req.get('kind')))
             if self.path == '/voice/stop':
                 return self._send(200, voice_stop())
+            if self.path == '/archive/folder':
+                return self._send(200, archive_set(req.get('path')))
+            if self.path == '/archive/read':
+                return self._send(200, archive_read(req.get('file')))
+            if self.path == '/archive/save':
+                return self._send(200, archive_save(req.get('file'), req.get('data'), req.get('id'), bool(req.get('overwrite'))))
+            if self.path == '/archive/open':
+                d = archive_dir()
+                f = req.get('file')
+                open_path(archive_file(f) if f else d)
+                return self._send(200, {'opened': f or d})
             if self.path == '/portal/save':
                 return self._send(200, portal_save(req.get('config')))
             if self.path == '/portal/run':

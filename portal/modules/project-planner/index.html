@@ -111,6 +111,11 @@ td.num input{width:58px; text-align:right}
 .status.ok{color:var(--ok)} .status.ko{color:var(--stop)}
 .shift{display:none; margin:-2px 0 10px; padding:8px 12px; border-radius:8px; background:var(--warn-bg); color:var(--warn); font-size:14px}
 .shift.on{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.projects td{padding:6px 4px; border-top:1px solid var(--rule); font-size:14px; white-space:nowrap}
+.projects td:nth-child(2){white-space:normal; min-width:160px}
+.projects tr.cur td{background:var(--phase)}
+.bar100{display:inline-block; width:70px; height:6px; border-radius:3px; background:var(--rule); vertical-align:middle; margin-right:6px; overflow:hidden}
+.bar100 i{display:block; height:100%; background:var(--bar-co)}
 @media (max-width:640px){ main{padding:18px 12px 48px} .card{padding:14px} .grow{grid-template-columns:150px 1fr} }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -127,6 +132,30 @@ td.num input{width:58px; text-align:right}
     <input type="file" id="openFile" accept=".xlsx,.json" hidden>
     <span class="note" id="openNote"></span>
   </div>
+
+  <section class="card" id="cArchive">
+    <h2><b>&#9776;</b>My projects<span class="sub" id="arSub"></span></h2>
+    <div id="arLinked" hidden>
+      <div id="arPick" hidden>
+        <p class="note" style="margin:0 0 8px">Choose the folder where the plans are kept: the team's SharePoint folder, synced on this laptop
+          (in SharePoint: <b>Sync</b>, or <b>Add shortcut to My files</b>; it then appears in File Explorer under OneDrive).</p>
+        <div class="row"><input id="arPath" style="flex:1; min-width:240px" placeholder="C:\Users\you\OneDrive - Company\Project plans" autocomplete="off">
+          <button class="btn" id="arUse">Use this folder</button></div>
+      </div>
+      <div id="arList" hidden>
+        <div class="row" style="margin-bottom:8px"><input id="arFind" type="search" placeholder="Find a client or project" style="flex:1; min-width:200px" autocomplete="off">
+          <button class="btn ghost sm" id="arNew">+ New plan</button><button class="btn ghost sm" id="arDir">Open the folder</button><button class="btn ghost sm" id="arChange">Change folder</button></div>
+        <div class="scroll"><table class="projects"><thead><tr><th>Client</th><th>Project</th><th>PM</th><th>Dates</th><th>Progress</th><th>Saved</th><th></th></tr></thead><tbody id="arRows"></tbody></table></div>
+      </div>
+    </div>
+    <div id="arOffline">
+      <p class="note" style="margin:0 0 8px">Keep each plan's Excel in the team's SharePoint folder (SharePoint keeps every version), and open it here with
+        <b>Open a saved plan</b>. Opened from the TPM Desk with Open desk.bat, this card lists the projects and saves them for you.</p>
+      <div class="row"><input id="arUrl" style="flex:1; min-width:240px" placeholder="Paste the SharePoint folder link once" autocomplete="off">
+        <a class="btn ghost" id="arGo" target="_blank" rel="noopener">Open the archive folder</a></div>
+    </div>
+    <p class="status" id="arOut"></p>
+  </section>
 
   <section class="card" id="cProject">
     <h2><b>1</b>Project</h2>
@@ -167,6 +196,7 @@ td.num input{width:58px; text-align:right}
       <label><input type="checkbox" id="xRaci" checked> RACI</label>
       <label><input type="checkbox" id="xGantt" checked> Gantt</label>
       <button class="btn" id="xGo">Export Excel</button>
+      <button class="btn ghost" id="xSave" hidden>Save to archive</button>
       <span class="status" id="xOut"></span>
     </div>
     <p class="note">The Excel keeps the plan inside it: open it here later with <b>Open a saved plan</b> to update it.</p>
