@@ -326,6 +326,7 @@ def archive_list() -> dict:
         out.append({'file': f, 'id': plan.get('id'), 'client': pr.get('client', ''), 'project': pr.get('name', ''),
                     'pm': pr.get('pm', ''), 'start': dates[0] if dates else '', 'end': dates[-1] if dates else '',
                     'tasks': len(tasks), 'done': sum(1 for t in tasks if t.get('status') == 'co'),
+                    'waiting': sum(1 for t in tasks if t.get('status') == 'wc'),
                     'modified': int(os.path.getmtime(p))})
     out.sort(key=lambda x: -x['modified'])
     return {'archive_dir': d, 'projects': out}

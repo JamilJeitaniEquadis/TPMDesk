@@ -10,7 +10,7 @@
   --paper:#EDF0F3; --card:#F8FAFB; --ink:#112032; --ink-soft:#5A6B7C; --rule:#C7D0D8; --field:#FFFFFF;
   --ok:#0F7A55; --warn:#8A5E10; --stop:#9E3A2C; --ok-bg:#DFF6EA; --warn-bg:#F5EBD8; --stop-bg:#F4E1DD;
   --btn-bg:#112032; --btn-ink:#FFFFFF; --phase:#E3E9EF;
-  --bar-ot:#2F5D8A; --bar-co:#58EA9D; --bar-ns:#C7D0D8; --bar-late:#C0504D; --bar-ms:#D9A945; --bar-ph:#112032;
+  --bar-ot:#2F5D8A; --bar-co:#58EA9D; --bar-ns:#C7D0D8; --bar-late:#C0504D; --bar-ms:#D9A945; --bar-wc:#8B5CF6; --bar-ph:#112032;
 }
 *,*::before,*::after{box-sizing:border-box}
 @media (prefers-color-scheme:dark){
@@ -67,7 +67,7 @@ td.num input{width:58px; text-align:right}
 .phead input{flex:1; font-weight:700; font-size:15px; background:transparent; border-color:transparent}
 .phead input:hover{border-color:var(--rule)}
 .phead .note{white-space:nowrap}
-.tasks{min-width:1180px} .tasks td.name{min-width:250px} .tasks td.name input{min-width:240px} .tasks select{min-width:118px}
+.tasks{min-width:1180px} .tasks td.name{min-width:250px} .tasks td.name input{min-width:240px} .tasks select{min-width:150px} .tasks input.since{display:block; width:100%; margin-top:4px; min-width:0; font-size:12.5px; padding:3px 6px; border-color:var(--bar-wc)} .tasks input.since[hidden]{display:none}
 .icon{font:inherit; font-size:14px; line-height:1; width:28px; height:28px; border-radius:6px; border:1px solid transparent; background:none; color:var(--ink-soft); cursor:pointer; flex:none}
 .icon:hover{border-color:var(--rule); color:var(--ink)}
 .icon.del:hover{color:var(--stop)}
@@ -116,6 +116,7 @@ td.num input{width:58px; text-align:right}
 .projects tr.cur td{background:var(--phase)}
 .bar100{display:inline-block; width:70px; height:6px; border-radius:3px; background:var(--rule); vertical-align:middle; margin-right:6px; overflow:hidden}
 .bar100 i{display:block; height:100%; background:var(--bar-co)}
+.projects .waiting{color:var(--bar-wc); font-weight:600}
 @media (max-width:640px){ main{padding:18px 12px 48px} .card{padding:14px} .grow{grid-template-columns:150px 1fr} }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -190,7 +191,7 @@ td.num input{width:58px; text-align:right}
     <div id="checks"></div>
     <h3 style="font-size:14px; margin:16px 0 6px">Gantt preview</h3>
     <div class="scroll"><div class="gantt" id="preview"></div></div>
-    <div class="legend"><span><i style="background:var(--bar-ot)"></i>On track</span><span><i style="background:var(--bar-co)"></i>Completed</span><span><i style="background:var(--bar-ns)"></i>Not started</span><span><i style="background:var(--bar-late)"></i>Late or blocked</span><span><i style="background:var(--bar-ms)"></i>Milestone</span><span><i style="background:var(--stop); width:2px"></i>Today</span></div>
+    <div class="legend"><span><i style="background:var(--bar-ot)"></i>On track</span><span><i style="background:var(--bar-co)"></i>Completed</span><span><i style="background:var(--bar-ns)"></i>Not started</span><span><i style="background:var(--bar-late)"></i>Late or blocked</span><span><i style="background:var(--bar-wc)"></i>Waiting on client</span><span><i style="background:var(--bar-ms)"></i>Milestone</span><span><i style="background:var(--stop); width:2px"></i>Today</span></div>
     <div class="export">
       <span class="note">Send</span>
       <label><input type="checkbox" id="xRaci" checked> RACI</label>

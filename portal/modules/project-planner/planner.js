@@ -15,22 +15,22 @@ const monday = n => n - ((new Date(n * 864e5).getUTCDay() + 6) % 7);
 const fmt = s => s ? s.split('-').reverse().join('/') : '';
 
 /* ---------- export wording ---------- */
-const ST = ['ns', 'ot', 'ar', 'bl', 'co'];
+const ST = ['ns', 'ot', 'ar', 'wc', 'bl', 'co'];      // wc: waiting on the client, since a date
 const L = {
-  en: { st: { ns: 'Not Started', ot: 'On Track', ar: 'At Risk', bl: 'Blocked', co: 'Completed' },
+  en: { st: { ns: 'Not Started', ot: 'On Track', ar: 'At Risk', wc: 'Waiting on Client', bl: 'Blocked', co: 'Completed' }, since: 'Waiting on the client since',
         raci: 'RACI', gantt: 'Gantt', task: 'Phase / Task', status: 'Status', R: 'Responsible (R)', A: 'Accountable (A)',
         C: 'Consulted (C)', I: 'Informed (I)', comment: 'Comment', resp: 'Responsible', start: 'Start', end: 'End', days: 'Days',
         pm: 'Project manager', updated: 'updated', done: 'done', roles: 'Roles', code: 'Code', role: 'Role', name: 'Name', side: 'Side',
         legend: ['R - Responsible: does the work', 'A - Accountable: owns the task and approves it (one per task)',
                  'C - Consulted: gives input before', 'I - Informed: kept up to date after'],
-        glegend: 'Blue: on track · Green: completed · Grey: not started · Red: late or blocked · Amber: milestone · Today is highlighted', locale: 'en-GB' },
-  fr: { st: { ns: 'Non démarré', ot: 'En cours', ar: 'À risque', bl: 'Bloqué', co: 'Terminé' },
+        glegend: 'Blue: on track · Green: completed · Grey: not started · Red: late or blocked · Violet: waiting on the client · Amber: milestone · Today is highlighted', locale: 'en-GB' },
+  fr: { st: { ns: 'Non démarré', ot: 'En cours', ar: 'À risque', wc: 'En attente client', bl: 'Bloqué', co: 'Terminé' }, since: 'En attente du client depuis le',
         raci: 'RACI', gantt: 'Gantt', task: 'Phase / Tâche', status: 'Statut', R: 'Réalise (R)', A: 'Valide (A)',
         C: 'Consulté (C)', I: 'Informé (I)', comment: 'Commentaire', resp: 'Responsable', start: 'Début', end: 'Fin', days: 'Jours',
         pm: 'Chef de projet', updated: 'mis à jour le', done: 'terminées', roles: 'Rôles', code: 'Code', role: 'Rôle', name: 'Nom', side: 'Côté',
         legend: ['R - Réalise : fait le travail', 'A - Valide : porte la tâche et la valide (un seul par tâche)',
                  'C - Consulté : donne son avis avant', 'I - Informé : tenu au courant après'],
-        glegend: 'Bleu : en cours · Vert : terminé · Gris : non démarré · Rouge : en retard ou bloqué · Ambre : jalon · Aujourd’hui est surligné', locale: 'fr-FR' },
+        glegend: 'Bleu : en cours · Vert : terminé · Gris : non démarré · Rouge : en retard ou bloqué · Violet : en attente du client · Ambre : jalon · Aujourd’hui est surligné', locale: 'fr-FR' },
 };
 
 /* ---------- state ---------- */
@@ -160,7 +160,14 @@ function taskRow(p, t, ti) {
   const name = el('input'); name.value = t.name; name.placeholder = 'What has to be done'; name.dataset.k = 't:' + t.id + ':name';
   name.oninput = () => { t.name = name.value; refresh(); }; td(name).className = 'name';
   const st = el('select'); ST.forEach(k => { const o = el('option', null, L.en.st[k]); o.value = k; st.appendChild(o); });
-  st.value = t.status; st.onchange = () => { t.status = st.value; refresh(); }; td(st);
+  st.value = t.status;
+  const since = el('input'); since.type = 'date'; since.title = 'Waiting on the client since'; since.setAttribute('aria-label', 'Waiting on the client since');
+  since.className = 'since'; since.value = t.since || ''; since.hidden = t.status !== 'wc'; since.dataset.k = 't:' + t.id + ':since';
+  since.oninput = () => { t.since = since.value; refresh(); };
+  st.onchange = () => { t.status = st.value;
+    if (t.status === 'wc' && !t.since) { t.since = ds(todayN()); since.value = t.since; }   // waiting starts today unless told otherwise
+    since.hidden = t.status !== 'wc'; refresh(); };
+  const stCell = td(st); stCell.appendChild(since);
   td(picker(t, 'r', true)); td(picker(t, 'a', false)); td(picker(t, 'c', true)); td(picker(t, 'i', true));
   const s = el('input'), e = el('input'), n = el('input'); s.type = e.type = 'date'; n.type = 'number'; n.min = 1;
   s.dataset.k = 't:' + t.id + ':start'; e.dataset.k = 't:' + t.id + ':end';
@@ -208,6 +215,7 @@ function checks() {
       if (dn(t.start) == null) err(tn + ': start date', 't:' + t.id + ':start');
       if (!t.milestone && dn(t.end) == null) err(tn + ': end date', 't:' + t.id + ':end');
       if (dn(t.start) != null && dn(t.end) != null && dn(t.end) < dn(t.start)) err(tn + ': ends before it starts', 't:' + t.id + ':end');
+      if (t.status === 'wc' && dn(t.since) == null) err(tn + ': waiting on the client since when?', 't:' + t.id + ':since');
       if (dn(t.start) != null && dn(p.start) != null && dn(t.start) < dn(p.start)) wrn(tn + ' starts before the project', 't:' + t.id + ':start');
       [...t.r, t.a, ...t.c, ...t.i].filter(Boolean).forEach(c => { used.add(c); if (!known.has(c)) err(tn + ': role ' + c + ' is not in the roles list', 't:' + t.id + ':r'); });
     });
@@ -236,7 +244,7 @@ function renderChecks() {
 }
 
 /* ---------- preview ---------- */
-const barCls = (t, today) => t.milestone ? 'ms' : t.status === 'co' ? 'co' : (t.status === 'bl' || (dn(t.end) != null && dn(t.end) < today)) ? 'late' : t.status === 'ns' ? 'ns' : 'ot';
+const barCls = (t, today) => t.milestone ? 'ms' : t.status === 'co' ? 'co' : t.status === 'wc' ? 'wc' : (t.status === 'bl' || (dn(t.end) != null && dn(t.end) < today)) ? 'late' : t.status === 'ns' ? 'ns' : 'ot';
 function renderPreview() {
   const box = $('#preview'); box.innerHTML = '';
   const ts = allTasks().filter(t => dn(t.start) != null && dn(t.end || t.start) != null);
@@ -282,8 +290,8 @@ function renderAll() { renderProject(); renderRoles(); renderPhases(); refresh()
 /* ---------- Excel ---------- */
 /* Equadis look: navy and green (change them here for the whole Excel) */
 const NAVY = 'FF112032', GREEN = 'FF58EA9D', DKGREEN = 'FF0F7A55', SOFT = 'FF5A6B7C', PH = 'FFE3E9EF', WHITE = 'FFFFFFFF', GRID = 'FFC7D0D8';
-const FILL = { 1: 'FF2F5D8A', 2: 'FF58EA9D', 3: 'FF112032', 4: 'FFC7D0D8', 5: 'FFC0504D', 6: 'FFD9A945' };
-const STFILL = { co: ['FFDFF6EA', 'FF0F7A55'], ot: ['FFDCE6F5', 'FF2F5597'], ar: ['FFF5EBD8', 'FF8A5E10'], bl: ['FFF4E1DD', 'FF9E3A2C'], ns: ['FFEDF0F3', 'FF5A6B7C'] };
+const FILL = { 1: 'FF2F5D8A', 2: 'FF58EA9D', 3: 'FF112032', 4: 'FFC7D0D8', 5: 'FFC0504D', 6: 'FFD9A945', 7: 'FF8B5CF6' };
+const STFILL = { co: ['FFDFF6EA', 'FF0F7A55'], ot: ['FFDCE6F5', 'FF2F5597'], ar: ['FFF5EBD8', 'FF8A5E10'], bl: ['FFF4E1DD', 'FF9E3A2C'], ns: ['FFEDF0F3', 'FF5A6B7C'], wc: ['FFF1ECFE', 'FF5B3FC4'] };
 const colL = n => { let s = ''; for (n++; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
 const xd = s => { const n = dn(s); return n == null ? null : new Date(n * 864e5); };
 const solid = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
@@ -321,7 +329,8 @@ function sheetRaci(wb, W) {
     rows[p.id] = r; r++;
     p.tasks.forEach(tk => {
       const row = ws.getRow(r);
-      row.values = [tk.name, W.st[tk.status], tk.r.join(', '), tk.a, tk.c.join(', '), tk.i.join(', '), tk.note];
+      const wait = tk.status === 'wc' && tk.since ? W.since + ' ' + fmt(tk.since) : '';
+      row.values = [tk.name, W.st[tk.status], tk.r.join(', '), tk.a, tk.c.join(', '), tk.i.join(', '), [wait, tk.note].filter(Boolean).join(' · ')];
       row.getCell(1).alignment = { indent: 1, wrapText: true, vertical: 'middle' };
       for (let c = 1; c <= 7; c++) { row.getCell(c).border = box; if (c > 1) row.getCell(c).alignment = { vertical: 'middle', wrapText: c === 7 }; }
       row.getCell(2).dataValidation = { type: 'list', allowBlank: true, formulae: [list] };
@@ -369,10 +378,10 @@ function sheetGantt(wb, W, raciRows) {
   hr.height = week ? 40 : 20;
   hr.eachCell(c => { c.font = { bold: true, color: { argb: WHITE } }; c.fill = solid(NAVY); c.border = box; if (!c.alignment) c.alignment = { vertical: 'middle' }; }); headLine(hr);
   const st = W.st, cell = (k, r) => colL(C0 + k) + r, H = k => colL(C0 + k) + '$5';
-  const inner = r => 'IF($B' + r + '="' + st.co + '",2,IF(OR($B' + r + '="' + st.bl + '",$E' + r + '<TODAY()),5,IF($B' + r + '="' + st.ns + '",4,1)))';
+  const inner = r => 'IF($B' + r + '="' + st.co + '",2,IF($B' + r + '="' + st.wc + '",7,IF(OR($B' + r + '="' + st.bl + '",$E' + r + '<TODAY()),5,IF($B' + r + '="' + st.ns + '",4,1))))';
   const inRange = (r, k) => week ? 'AND($D' + r + '<=' + H(k) + '+6,$E' + r + '>=' + H(k) + ')' : 'AND($D' + r + '<=' + H(k) + ',$E' + r + '>=' + H(k) + ')';
   const hit = (a, b, d) => week ? (a <= d + 6 && b >= d) : (a <= d && b >= d);
-  const code = tk => tk.milestone ? 6 : tk.status === 'co' ? 2 : (tk.status === 'bl' || dn(tk.end || tk.start) < today) ? 5 : tk.status === 'ns' ? 4 : 1;
+  const code = tk => tk.milestone ? 6 : tk.status === 'co' ? 2 : tk.status === 'wc' ? 7 : (tk.status === 'bl' || dn(tk.end || tk.start) < today) ? 5 : tk.status === 'ns' ? 4 : 1;
   let r = 6;
   const ref = (key, col, val) => raciRows && raciRows[key] ? { formula: W.raci + '!' + col + raciRows[key], result: val } : val;
   phasesForExport().forEach(p => {
@@ -406,11 +415,11 @@ function sheetGantt(wb, W, raciRows) {
   [4, 5].forEach(c => { for (let i = 6; i <= end; i++) ws.getCell(i, c).numFmt = 'dd/mm/yyyy'; });
   for (let i = 6; i <= end; i++) for (let k = 0; k < ncol; k++) { const c = ws.getCell(i, C0 + k + 1); c.border = { left: { style: 'hair', color: { argb: GRID } }, bottom: { style: 'hair', color: { argb: GRID } } }; }
   const tl = colL(C0) + '6:' + lastL + end, H0 = colL(C0);
-  const rules = [1, 2, 3, 4, 5, 6].map((v, i) => ({ type: 'cellIs', operator: 'equal', priority: i + 1, formulae: [String(v)],
+  const rules = [1, 2, 3, 4, 5, 6, 7].map((v, i) => ({ type: 'cellIs', operator: 'equal', priority: i + 1, formulae: [String(v)],
     style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: FILL[v] } }, font: { color: { argb: FILL[v] } } } }));
-  rules.push({ type: 'expression', priority: 7, formulae: [week ? 'AND(' + H0 + '$5<=TODAY(),TODAY()<' + H0 + '$5+7)' : H0 + '$5=TODAY()'],
+  rules.push({ type: 'expression', priority: 8, formulae: [week ? 'AND(' + H0 + '$5<=TODAY(),TODAY()<' + H0 + '$5+7)' : H0 + '$5=TODAY()'],
     style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFFF2CC' } } } });
-  if (!week) rules.push({ type: 'expression', priority: 8, formulae: ['WEEKDAY(' + H0 + '$5,2)>5'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFF2F2F2' } } } });
+  if (!week) rules.push({ type: 'expression', priority: 9, formulae: ['WEEKDAY(' + H0 + '$5,2)>5'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFF2F2F2' } } } });
   ws.addConditionalFormatting({ ref: tl, rules });
   ws.addConditionalFormatting({ ref: H0 + '5:' + lastL + '5', rules: [{ type: 'expression', priority: 1, formulae: [week ? 'AND(' + H0 + '$5<=TODAY(),TODAY()<' + H0 + '$5+7)' : H0 + '$5=TODAY()'],
     style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFD9A945' } }, font: { color: { argb: NAVY }, bold: true } } }] });
@@ -523,7 +532,8 @@ function drawProjects() {
   list.forEach(p => {
     const tr = el('tr', S && p.id === S.id ? 'cur' : null), pc = p.tasks ? Math.round(p.done / p.tasks * 100) : 0;
     [p.client, p.project, p.pm, (p.start ? fmt(p.start) : '') + (p.end ? ' → ' + fmt(p.end) : '')].forEach(v => tr.appendChild(el('td', null, v)));
-    const pr = el('td'), bar = el('span', 'bar100'), fill = el('i'); fill.style.width = pc + '%'; bar.appendChild(fill); pr.append(bar, p.done + ' / ' + p.tasks); tr.appendChild(pr);
+    const pr = el('td'), bar = el('span', 'bar100'), fill = el('i'); fill.style.width = pc + '%'; bar.appendChild(fill); pr.append(bar, p.done + ' / ' + p.tasks);
+    if (p.waiting) { const w = el('span', 'waiting', ' · ' + p.waiting + ' waiting on client'); pr.appendChild(w); } tr.appendChild(pr);
     tr.appendChild(el('td', 'note', new Date(p.modified * 1000).toLocaleDateString(L[(S && S.project.lang) || 'en'].locale)));
     const a = el('td'), b = el('button', 'btn sm', S && p.id === S.id ? 'Open again' : 'Open'); b.onclick = () => openArchived(p.file); a.appendChild(b); tr.appendChild(a);
     tb.appendChild(tr);
