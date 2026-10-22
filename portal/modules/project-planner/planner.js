@@ -37,14 +37,23 @@ const L = {
 let S = null, prevStart = null;
 const codes = s => String(s || '').split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
 const newTask = (o = {}) => ({ id: uid(), name: '', status: 'ns', r: [], a: '', c: [], i: [], start: '', end: '', note: '', milestone: false, ...o });
-function fromTemplate(tp, start) {
-  const s0 = dn(start);
+/* day k of a template: calendar day, or k-th working day (Monday to Friday) for workdays templates */
+function addWorkdays(n, k) {
+  const wd = x => (new Date(x * 864e5).getUTCDay() + 6) % 7;     // 0 Monday ... 6 Sunday
+  while (wd(n) > 4) n++;
+  for (let i = 0; i < k; i++) { n++; while (wd(n) > 4) n++; }
+  return n;
+}
+function fromTemplate(tp, start, lang) {
+  const s0 = dn(start), fr = lang === 'fr';
+  const pick = v => Array.isArray(v) ? v[fr ? 1 : 0] : v;
+  const day = k => tp.workdays ? addWorkdays(s0, k) : s0 + k;
   return {
-    v: 1, id: uid() + uid(), project: { client: '', name: '', pm: '', start, lang: 'en', scale: 'week' },
+    v: 1, id: uid() + uid(), project: { client: '', name: '', pm: '', start, lang: fr ? 'fr' : 'en', scale: 'week' },
     roles: window.PLANNER_ROLES.map(r => ({ id: uid(), name: '', ...r })),
-    phases: tp.phases.map(p => ({ id: uid(), name: p.name, tasks: p.tasks.map(x => newTask({
-      name: x.name, r: codes(x.r), a: codes(x.a)[0] || '', c: codes(x.c), i: codes(x.i), milestone: !!x.milestone,
-      start: ds(s0 + x.d), end: ds(s0 + x.d + (x.milestone ? 0 : x.n - 1)) })) })),
+    phases: tp.phases.map(p => ({ id: uid(), name: pick(p.name), tasks: p.tasks.map(x => newTask({
+      name: pick(x.name), r: codes(x.r), a: codes(x.a)[0] || '', c: codes(x.c), i: codes(x.i), milestone: !!x.milestone,
+      start: ds(day(x.d)), end: ds(day(x.d + (x.milestone ? 0 : x.n - 1))) })) })),
   };
 }
 
@@ -483,13 +492,13 @@ $('#openFile').onchange = async e => {
 /* ---------- templates ---------- */
 const sel = $('#tpl');
 window.PLANNER_TEMPLATES.forEach(tp => { const o = el('option', null, tp.name + ' - ' + tp.note); o.value = tp.id; sel.appendChild(o); });
-sel.value = 'interface';
+sel.value = 'product';
 $('#tplGo').onclick = () => {
   const tp = window.PLANNER_TEMPLATES.find(x => x.id === sel.value);
   const filled = allTasks().some(t => t.name);
   if (filled && !confirm('Replace the current plan with the "' + tp.name + '" template? Project details are kept.')) return;
   const keep = S && S.project;
-  S = fromTemplate(tp, (keep && keep.start) || ds(monday(todayN()))); S.file = null;
+  S = fromTemplate(tp, (keep && keep.start) || ds(monday(todayN())), keep && keep.lang); S.file = null;
   if (keep) Object.assign(S.project, keep);
   renderAll();
 };
@@ -503,7 +512,7 @@ try {
     sync(); new MutationObserver(sync).observe(pd, { attributes: true, attributeFilter: ['data-theme'] }); document.querySelector('main').style.paddingTop = '8px'; }
 } catch (e) { /* another origin: keep the system theme */ }
 
-S = fromTemplate(window.PLANNER_TEMPLATES.find(x => x.id === 'interface'), ds(monday(todayN())));
+S = fromTemplate(window.PLANNER_TEMPLATES.find(x => x.id === 'product'), ds(monday(todayN())), 'en');
 /* ---------- project archive: a SharePoint folder synced on the laptop, through the TPM Desk's Claude link ----------
    Only when the planner runs inside the desk opened from its folder (file://). On the public portal the
    link refuses the call, and the card offers the SharePoint folder link instead. */

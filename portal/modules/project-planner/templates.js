@@ -1,6 +1,7 @@
 /* Project planner: the standard roles and the project templates.
    Each template is a list of phases; each task has its RACI by role code and its timing in days
-   from the project start (d = first day, n = length in days). Edit here to change every new plan. */
+   from the project start (d = first day, n = length in days; working days when the template says workdays).
+   A name can be [English, French]: the plan's Excel language picks one. Edit here to change every new plan. */
 window.PLANNER_ROLES = [
   { code: 'CPM',   title: 'Client project manager',               side: 'Client'  },
   { code: 'EPM',   title: 'Equadis project manager',              side: 'Equadis' },
@@ -20,30 +21,75 @@ const ms = (name, r, a, c, i, d) => t(name, r, a, c, i, d, 1, { milestone: true 
 
 window.PLANNER_TEMPLATES = [
   { id: 'blank', name: 'Blank plan', note: 'One empty phase', phases: [{ name: 'Phase 1', tasks: [] }] },
+  /* Data interfaces, from the team's retroplannings (MS Project): durations in WORKING days, names in [English, French].
+     Products (~47 days), visuals (~27 days), or both in sequence (~63 days). */
   {
-    id: 'interface', name: 'Data integration interface', note: 'Product / logistics or photos interface with a client',
+    id: 'product', name: 'Product interface', note: 'Client product data flow into GAIA, about 10 weeks', workdays: true,
     phases: [
-      { name: 'Preparation', tasks: [
-        ms('Kick-off meeting', 'EPM, CPM', 'EPM', 'CPM, ECL', 'EKAM', 0),
-        t('Kick-off technical meeting', 'EPM, CPM', 'EPM', 'CPM', 'EFM, EKAM', 2, 1),
-        t('Documentation pack sent', 'EPM', 'EPM', '', 'CPM', 3, 2),
+      { name: ['Kick-off', 'Kick-off'], tasks: [
+        ms(['Kick-off meeting', 'Réunion de kick-off'], 'EPM, CPM', 'EPM', 'CPM', 'EKAM, EFM', 0),
       ] },
-      { name: 'Interface', tasks: [
-        t('Documentation analysis', 'CPM', 'EPM', 'CPM', 'EKAM', 5, 5),
-        t('Client conception', 'CPM', 'CPM', 'EPM', '', 10, 5),
-        t('Client development', 'CPM', 'EPM', 'CPM', 'EFM, EKAM', 15, 10),
-        t('Equadis development', 'EFM', 'EPM', 'EKAM', 'CPM', 15, 10),
-        t('Technical tests', 'EFM', 'EPM', 'CPM', 'ETS, ECS', 25, 5),
-        t('Functional tests', 'EPM', 'EPM', 'CPM', 'EFM, EKAM, ECS, ETS', 30, 5),
-        ms('Deployment on production', 'EPM', 'EPM', 'CPM', 'EFM, EKAM, ECS, ETS, ECL', 35),
+      { name: ['Product interface', 'Interface produits'], tasks: [
+        t(['Documentation analysis', 'Analyse de la documentation'], 'CPM', 'EPM', 'EFM', 'EKAM', 1, 2),
+        t(['Data workshops and field mapping (Excel file)', 'Workshops données et mapping des champs (fichier Excel)'], 'EPM, CPM', 'EPM', 'EFM', 'EKAM', 3, 10),
+        t(['Technical pre-call', 'Pré-call technique'], 'EFM, CPM', 'EPM', '', 'EKAM', 13, 1),
+        t(['Product flow development (Equadis XML format)', 'Développement du flux produits (format XML Equadis)'], 'CPM', 'CPM', 'EFM', 'EPM', 14, 20),
+        t(['Technical test', 'Test technique'], 'EFM, CPM', 'EPM', '', 'ETS', 34, 5),
+        t(['Business validation', 'Validation métier'], 'CPM, EPM', 'CPM', 'EFM', 'EKAM', 39, 5),
       ] },
-      { name: 'Production', tasks: [
-        t('Users training', 'EKAM', 'ECS', 'CPM', 'EPM', 36, 2),
-        t('Hypercare', 'ETS', 'EPM', 'CPM', 'EKAM', 36, 10),
+      { name: ['Go-live preparation', 'Préparation du go-live'], tasks: [
+        t(['Production deployment', 'Déploiement en production'], 'EFM', 'EPM', 'CPM', 'ETS, ECS', 44, 2),
+        t(['Users training', 'Formation des utilisateurs'], 'EKAM', 'ECS', 'CPM', 'EPM', 46, 1),
+        ms(['Go-live', 'Go-live'], 'EPM, CPM', 'EPM', 'CPM', 'EKAM, ECS, ETS, ECL', 47),
       ] },
-      { name: 'Governance', tasks: [
-        t('Weekly project committee call', 'EPM', 'EPM', 'CPM', 'EKAM', 0, 46),
-        t('Steering committee call (every two weeks)', 'EPM', 'EPM', 'CPM, ECL', 'EKAM', 0, 46),
+    ],
+  },
+  {
+    id: 'visuals', name: 'Visuals interface', note: 'Client photos and documents flow into GAIA, about 6 weeks', workdays: true,
+    phases: [
+      { name: ['Kick-off', 'Kick-off'], tasks: [
+        ms(['Kick-off meeting', 'Réunion de kick-off'], 'EPM, CPM', 'EPM', 'CPM', 'EKAM, EFM', 0),
+      ] },
+      { name: ['Visuals interface', 'Interface visuels'], tasks: [
+        t(['Documentation analysis', 'Analyse de la documentation'], 'CPM', 'EPM', 'EFM', 'EKAM', 1, 1),
+        t(['Visuals field mapping (Excel file)', 'Mapping des champs visuels (fichier Excel)'], 'CPM, EPM', 'EPM', 'EFM', '', 2, 5),
+        t(['Technical pre-call', 'Pré-call technique'], 'EFM, CPM', 'EPM', '', 'EKAM', 7, 1),
+        t(['Visuals flow development (Equadis XML format)', 'Développement du flux visuels (format XML Equadis)'], 'CPM', 'CPM', 'EFM', 'EPM', 8, 10),
+        t(['Technical test', 'Test technique'], 'EFM, CPM', 'EPM', '', 'ETS', 18, 3),
+        t(['Business validation', 'Validation métier'], 'CPM, EPM', 'CPM', 'EFM', 'EKAM', 21, 2),
+      ] },
+      { name: ['Go-live preparation', 'Préparation du go-live'], tasks: [
+        t(['Production deployment', 'Déploiement en production'], 'EFM', 'EPM', 'CPM', 'ETS, ECS', 23, 2),
+        t(['Users training', 'Formation des utilisateurs'], 'EKAM', 'ECS', 'CPM', 'EPM', 25, 1),
+        ms(['Go-live', 'Go-live'], 'EPM, CPM', 'EPM', 'CPM', 'EKAM, ECS, ETS, ECL', 26),
+      ] },
+    ],
+  },
+  {
+    id: 'product-visuals', name: 'Product and visuals interfaces', note: 'Products first, then visuals, one go-live, about 13 weeks', workdays: true,
+    phases: [
+      { name: ['Kick-off', 'Kick-off'], tasks: [
+        ms(['Kick-off meeting', 'Réunion de kick-off'], 'EPM, CPM', 'EPM', 'CPM', 'EKAM, EFM', 0),
+      ] },
+      { name: ['Product interface', 'Interface produits'], tasks: [
+        t(['Documentation analysis', 'Analyse de la documentation'], 'CPM', 'EPM', 'EFM', 'EKAM', 1, 2),
+        t(['Data workshops: final data model', 'Workshops analyse des données : modèle de données final'], 'EPM, CPM', 'EPM', 'EFM', 'EKAM', 3, 10),
+        t(['Technical pre-call', 'Pré-call technique'], 'EFM, CPM', 'EPM', '', 'EKAM', 13, 1),
+        t(['Product flow development (Equadis XML format)', 'Développement du flux produits (format XML Equadis)'], 'CPM', 'CPM', 'EFM', 'EPM', 14, 20),
+        t(['Technical test', 'Test technique'], 'EFM, CPM', 'EPM', '', 'ETS', 34, 5),
+        t(['Business validation', 'Validation métier'], 'CPM, EPM', 'CPM', 'EFM', 'EKAM', 39, 5),
+      ] },
+      { name: ['Visuals interface', 'Interface visuels'], tasks: [
+        t(['Documentation analysis', 'Analyse de la documentation'], 'CPM', 'EPM', 'EFM', 'EKAM', 44, 1),
+        t(['Technical pre-call', 'Pré-call technique'], 'EFM, CPM', 'EPM', '', 'EKAM', 45, 1),
+        t(['Visuals flow development (Equadis XML format)', 'Développement du flux visuels (format XML Equadis)'], 'CPM', 'CPM', 'EFM', 'EPM', 46, 10),
+        t(['Technical test', 'Test technique'], 'EFM, CPM', 'EPM', '', 'ETS', 56, 2),
+        t(['Business validation', 'Validation métier'], 'CPM, EPM', 'CPM', 'EFM', 'EKAM', 58, 2),
+      ] },
+      { name: ['Go-live preparation', 'Préparation du go-live'], tasks: [
+        t(['Production deployment', 'Déploiement en production'], 'EFM', 'EPM', 'CPM', 'ETS, ECS', 60, 1),
+        t(['Users training', 'Formation des utilisateurs'], 'EKAM', 'ECS', 'CPM', 'EPM', 61, 1),
+        ms(['Go-live', 'Go-live'], 'EPM, CPM', 'EPM', 'CPM', 'EKAM, ECS, ETS, ECL', 62),
       ] },
     ],
   },
