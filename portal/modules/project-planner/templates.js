@@ -17,7 +17,7 @@ window.PLANNER_ROLES = [
 
 /* t(name, R, A, C, I, d, n) */
 const t = (name, r, a, c, i, d, n, extra) => Object.assign({ name, r, a, c, i, d, n }, extra || {});
-const ms = (name, r, a, c, i, d) => t(name, r, a, c, i, d, 1, { milestone: true });
+const ms = (name, r, a, c, i, d, extra) => t(name, r, a, c, i, d, 1, Object.assign({ milestone: true }, extra || {}));
 
 window.PLANNER_TEMPLATES = [
   { id: 'blank', name: 'Blank plan', note: 'One empty phase', phases: [{ name: 'Phase 1', tasks: [] }] },
@@ -90,6 +90,73 @@ window.PLANNER_TEMPLATES = [
         t(['Production deployment', 'Déploiement en production'], 'EFM', 'EPM', 'CPM', 'ETS, ECS', 60, 1),
         t(['Users training', 'Formation des utilisateurs'], 'EKAM', 'ECS', 'CPM', 'EPM', 61, 1),
         ms(['Go-live', 'Go-live'], 'EPM, CPM', 'EPM', 'CPM', 'EKAM, ECS, ETS, ECL', 62),
+      ] },
+    ],
+  },
+  /* DSA proof of concept, from the team's POC plan: three sheets (Scope, Tracker, Gantt), working days.
+     scope.fields: [English, French, hint]; scope.tables: columns [English, French]; a task's note is its detail. */
+  {
+    id: 'dsa-poc', name: 'DSA POC', note: 'Proof of concept: scope, tracker and timeline, about 7 weeks', workdays: true,
+    sheets: ['scope', 'tracker', 'gantt'],
+    scope: {
+      fields: [
+        ['Objective', 'Objectif', 'Monitor N client products and their competitors on N retailers in N markets'],
+        ['Ready date', 'Date de mise à disposition', 'All data loaded and tested'],
+        ['POC period', 'Période du POC', 'Start - end (3 weeks)'],
+        ['Markets', 'Marchés', 'Countries'],
+        ['Client products', 'Produits client', 'N SKUs (max. 15), by category'],
+        ['Competitors', 'Concurrents', '1 competitor SKU per client SKU'],
+        ['Retailers', 'Distributeurs', 'N retailers, by country'],
+        ['Client users', 'Utilisateurs client', 'N users (max. 10)'],
+        ['User language', 'Langue des utilisateurs', 'English, French…'],
+        ['Equadis owner', 'Responsable Equadis', 'Project manager'],
+      ],
+      tables: [
+        { name: ['Retailers', 'Distributeurs'], cols: [['Retailer', 'Distributeur'], ['Country', 'Pays'], ['Website', 'Site'], ['DSA features', 'Fonctions DSA']] },
+        { name: ['Products', 'Produits'], cols: [['Client GTIN', 'GTIN client'], ['Category', 'Catégorie'], ['Client product', 'Produit client'], ['Competitor product', 'Produit concurrent'], ['Competitor GTIN', 'GTIN concurrent']] },
+      ],
+    },
+    phases: [
+      { name: ['1. Data preparation', '1. Préparation des données'], tasks: [
+        t(['Export GAIA data for the POC products and load them in e-agora (bulk update)', 'Exporter les données GAIA des produits du POC et les intégrer dans e-agora (mise à jour en masse)'], 'EPM', 'EPM', '', '', 0, 2, { note: ['GAIA data export → e-agora bulk update', 'Export GAIA → mise à jour en masse e-agora'] }),
+        t(['Add the retailer connectors to the client account and subscribe the products', 'Ajouter les connecteurs distributeurs au compte client et abonner les produits'], 'EPM', 'EPM', '', '', 1, 2, { note: ['One connector per retailer', 'Un connecteur par distributeur'] }),
+        t(['Check that e-agora data matches GAIA data', 'Vérifier que les données e-agora correspondent à GAIA'], 'EPM', 'EPM', '', '', 1, 2),
+        t(['Add the client recommended prices (SRP) for the target markets', 'Ajouter les prix conseillés (SRP) du client pour les marchés cibles'], 'EPM', 'EPM', 'CPM', '', 2, 1),
+        t(['Support tickets: clean the retailers and products already in the account', 'Tickets support : nettoyer les distributeurs et produits déjà présents sur le compte'], 'EPM', 'EPM', '', 'ETS', 2, 1),
+        t(['Prepare the assortment file and insert it in SQL', 'Préparer le fichier d’assortiment et l’insérer en SQL'], 'EPM', 'EPM', '', 'ETS', 2, 2),
+        t(['Prepare the keywords file and insert it in SQL', 'Préparer le fichier de mots-clés et l’insérer en SQL'], 'EPM', 'EPM', '', 'ETS', 2, 2),
+        t(['Prepare the competitors file and insert it in SQL', 'Préparer le fichier des concurrents et l’insérer en SQL'], 'EPM', 'EPM', '', 'ETS', 2, 2),
+        t(['Run the skill, complete the product assortment and send it to the data provider', 'Lancer le skill, compléter l’assortiment produits et l’envoyer au fournisseur de données'], 'ETS', 'EPM', '', '', 3, 7),
+        t(['Complete the keywords and send them to the data provider', 'Compléter les mots-clés et les envoyer au fournisseur de données'], 'ETS', 'EPM', '', '', 3, 7),
+        t(['Run the skill, complete the competitors file and send it to the data provider', 'Lancer le skill, compléter le fichier des concurrents et l’envoyer au fournisseur de données'], 'ETS', 'EPM', '', '', 3, 7),
+      ] },
+      { name: ['2. Loading and configuration', '2. Chargement et configuration'], tasks: [
+        t(['Integrate the product assortment in e-agora', 'Intégrer l’assortiment produits dans e-agora'], 'EPM', 'EPM', '', '', 9, 2, { note: ['Subscriptions screen', 'Écran des abonnements'] }),
+        t(['Integrate the competitor assortment in e-agora', 'Intégrer l’assortiment concurrents dans e-agora'], 'EPM', 'EPM', '', '', 9, 2, { note: ['Competitors screen', 'Écran des concurrents'] }),
+        t(['Create the client users', 'Créer les utilisateurs client'], 'EPM', 'EPM', '', 'CPM', 10, 2),
+        t(['Set up the POC features', 'Paramétrer les fonctionnalités du POC'], 'EPM', 'EPM', 'EDEV', '', 10, 3),
+      ] },
+      { name: ['3. Dry run and readiness', '3. Test à blanc et mise à disposition'], tasks: [
+        t(['First collection run on the retailers', 'Première collecte sur les distributeurs'], 'EPM', 'EPM', 'EDEV', '', 10, 3),
+        t(['Check the match rate per retailer', 'Vérifier le taux de correspondance par distributeur'], 'EPM', 'EPM', 'ETS', '', 11, 3, { note: ['Client and competitor products found / expected', 'Produits client et concurrents trouvés / attendus'] }),
+        t(['Data fixes', 'Corrections des données'], 'EPM', 'EPM', 'ETS', '', 12, 3),
+        ms(['Everything ready', 'Tout est prêt'], 'EPM', 'EPM', '', 'CPM, EKAM', 14),
+      ] },
+      { name: ['4. Client onboarding', '4. Onboarding client'], tasks: [
+        t(['Send the logins to the client users', 'Envoyer les accès aux utilisateurs client'], 'EPM', 'EPM', '', 'CPM', 15, 2),
+        t(['Onboarding session with the client', 'Session d’onboarding avec le client'], 'EPM', 'EPM', 'CPM', 'EKAM', 17, 2),
+        t(['Success criteria and weekly check-in slot', 'Critères de succès et créneau du point hebdomadaire'], 'EPM, CPM', 'EPM', '', 'EKAM', 18, 2),
+      ] },
+      { name: ['5. POC run', '5. Déroulement du POC'], tasks: [
+        ms(['POC kick-off', 'Lancement du POC'], 'EPM', 'EPM', 'CPM', 'EKAM', 20),
+        t(['Daily collection monitoring', 'Suivi quotidien des collectes'], 'EPM', 'EPM', '', '', 20, 15, { note: ['Every day, all retailers', 'Chaque jour, tous les distributeurs'] }),
+        t(['Weekly check-in 1 with the client', 'Point hebdomadaire 1 avec le client'], 'EPM', 'EPM', 'CPM', '', 24, 1, { note: ['Coverage, issues, first findings', 'Couverture, problèmes, premiers constats'] }),
+        t(['Weekly check-in 2 with the client', 'Point hebdomadaire 2 avec le client'], 'EPM', 'EPM', 'CPM', '', 29, 1, { note: ['Coverage, issues, first findings', 'Couverture, problèmes, premiers constats'] }),
+        t(['POC results report', 'Rapport de résultats du POC'], 'EPM', 'EPM', '', 'EKAM', 30, 4, { note: ['Per retailer and per feature', 'Par distributeur et par fonctionnalité'] }),
+        ms(['Closing meeting', 'Réunion de clôture'], 'EPM', 'EPM', 'CPM', 'EKAM, ECL', 34, { note: ['Results and next steps', 'Résultats et prochaines étapes'] }),
+      ] },
+      { name: ['6. Follow-up', '6. Suivi'], tasks: [
+        t(['Weekly tracker review', 'Revue hebdomadaire du tracker'], 'EPM', 'EPM', '', '', 0, 35, { note: ['Every Monday', 'Chaque lundi'] }),
       ] },
     ],
   },

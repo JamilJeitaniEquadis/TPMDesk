@@ -15,7 +15,7 @@ portal/
 
 | Module | What it does |
 |---|---|
-| `project-planner` | One standard plan for every project: roles, phases, tasks with R/A/C/I and dates, checks that nothing is missing, then an Excel with a RACI sheet and/or a Gantt sheet. The Excel keeps the plan in a hidden sheet, so it can be reopened and updated. |
+| `project-planner` | One standard plan for every project: roles, phases, tasks with R/A/C/I and dates, checks that nothing is missing, then an Excel with the sheets the PM picks: Scope, RACI, Tracker (counts, overdue, days left) and Gantt. The DSA POC template starts with Scope, Tracker and Gantt. The Excel keeps the plan in a hidden sheet, so it can be reopened and updated. |
 
 A module must work on its own: no server, no login, nothing sent anywhere, no client data inside it.
 In the desk, `app/build.py` embeds each module as one HTML file (sidebar: **Project planner**).

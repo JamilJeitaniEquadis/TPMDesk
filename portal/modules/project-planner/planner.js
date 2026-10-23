@@ -23,14 +23,18 @@ const L = {
         pm: 'Project manager', updated: 'updated', done: 'done', roles: 'Roles', code: 'Code', role: 'Role', name: 'Name', side: 'Side',
         legend: ['R - Responsible: does the work', 'A - Accountable: owns the task and approves it (one per task)',
                  'C - Consulted: gives input before', 'I - Informed: kept up to date after'],
-        glegend: 'Blue: on track · Green: completed · Grey: not started · Red: late or blocked · Violet: waiting on the client · Amber: milestone · Today is highlighted', locale: 'en-GB' },
+        glegend: 'Blue: on track · Green: completed · Grey: not started · Red: late or blocked · Violet: waiting on the client · Amber: milestone · Today is highlighted', locale: 'en-GB',
+        tk: 'Task', scope: 'Scope', overview: 'Overview', tracker: 'Tracker', id: 'ID', phase: 'Phase', detail: 'Detail', owner: 'Owner', due: 'Due',
+        overdue: 'Overdue', daysLeft: 'Days left', notes: 'Notes', tasks: 'Tasks', pctDone: '% done', daysTo: 'Days to', theEnd: 'the end' },
   fr: { st: { ns: 'Non démarré', ot: 'En cours', ar: 'À risque', wc: 'En attente client', bl: 'Bloqué', co: 'Terminé' }, since: 'En attente du client depuis le',
         raci: 'RACI', gantt: 'Gantt', task: 'Phase / Tâche', status: 'Statut', R: 'Réalise (R)', A: 'Valide (A)',
         C: 'Consulté (C)', I: 'Informé (I)', comment: 'Commentaire', resp: 'Responsable', start: 'Début', end: 'Fin', days: 'Jours',
         pm: 'Chef de projet', updated: 'mis à jour le', done: 'terminées', roles: 'Rôles', code: 'Code', role: 'Rôle', name: 'Nom', side: 'Côté',
         legend: ['R - Réalise : fait le travail', 'A - Valide : porte la tâche et la valide (un seul par tâche)',
                  'C - Consulté : donne son avis avant', 'I - Informé : tenu au courant après'],
-        glegend: 'Bleu : en cours · Vert : terminé · Gris : non démarré · Rouge : en retard ou bloqué · Violet : en attente du client · Ambre : jalon · Aujourd’hui est surligné', locale: 'fr-FR' },
+        glegend: 'Bleu : en cours · Vert : terminé · Gris : non démarré · Rouge : en retard ou bloqué · Violet : en attente du client · Ambre : jalon · Aujourd’hui est surligné', locale: 'fr-FR',
+        tk: 'Tâche', scope: 'Périmètre', overview: 'Vue d’ensemble', tracker: 'Suivi', id: 'ID', phase: 'Phase', detail: 'Détail', owner: 'Responsable', due: 'Échéance',
+        overdue: 'En retard', daysLeft: 'Jours restants', notes: 'Notes', tasks: 'Tâches', pctDone: '% terminé', daysTo: 'Jours avant', theEnd: 'la fin' },
 };
 
 /* ---------- state ---------- */
@@ -44,17 +48,30 @@ function addWorkdays(n, k) {
   for (let i = 0; i < k; i++) { n++; while (wd(n) > 4) n++; }
   return n;
 }
+/* Scope sheet: lines of the overview (label, value) and tables pasted from Excel. Templates without one get two lines. */
+const SCOPE0 = { fields: [['Objective', 'Objectif', 'What the project delivers'], ['Key dates', 'Dates clés', 'Go-live, milestones']], tables: [] };
+function scopeOf(sc, pick) {
+  return { fields: sc.fields.map(f => ({ id: uid(), label: pick([f[0], f[1]]), value: '', hint: f[2] || '' })),
+           tables: sc.tables.map(x => ({ id: uid(), name: pick(x.name), cols: x.cols.map(pick), rows: [] })) };
+}
 function fromTemplate(tp, start, lang) {
   const s0 = dn(start), fr = lang === 'fr';
   const pick = v => Array.isArray(v) ? v[fr ? 1 : 0] : v;
   const day = k => tp.workdays ? addWorkdays(s0, k) : s0 + k;
   return {
     v: 1, id: uid() + uid(), project: { client: '', name: '', pm: '', start, lang: fr ? 'fr' : 'en', scale: 'week' },
+    sheets: (tp.sheets || ['raci', 'gantt']).slice(), scope: scopeOf(tp.scope || SCOPE0, pick),
     roles: window.PLANNER_ROLES.map(r => ({ id: uid(), name: '', ...r })),
     phases: tp.phases.map(p => ({ id: uid(), name: pick(p.name), tasks: p.tasks.map(x => newTask({
-      name: pick(x.name), r: codes(x.r), a: codes(x.a)[0] || '', c: codes(x.c), i: codes(x.i), milestone: !!x.milestone,
+      name: pick(x.name), r: codes(x.r), a: codes(x.a)[0] || '', c: codes(x.c), i: codes(x.i), milestone: !!x.milestone, note: pick(x.note) || '',
       start: ds(day(x.d)), end: ds(day(x.d + (x.milestone ? 0 : x.n - 1))) })) })),
   };
+}
+/* plans saved before the Scope and Tracker sheets */
+function upgrade(o) {
+  if (!Array.isArray(o.sheets)) o.sheets = ['raci', 'gantt'];
+  if (!o.scope) o.scope = scopeOf(SCOPE0, v => v[o.project && o.project.lang === 'fr' ? 1 : 0]);
+  return o;
 }
 
 /* ---------- rendering ---------- */
@@ -84,6 +101,53 @@ function offerShift() {
   $('#shiftGo').onclick = () => { allTasks().forEach(t => { if (t.start) t.start = ds(dn(t.start) + d); if (t.end) t.end = ds(dn(t.end) + d); });
     prevStart = S.project.start; box.classList.remove('on'); renderPhases(); refresh(); };
   $('#shiftNo').onclick = () => { prevStart = S.project.start; box.classList.remove('on'); };
+}
+/* tab-separated lines (copied from Excel) -> rows of n cells */
+const tsv = (txt, n) => txt.replace(/\r/g, '').split('\n').filter(l => l.trim()).map(l => { const c = l.split('\t').map(x => x.trim()); while (c.length < n) c.push(''); return c.slice(0, n); });
+function renderScope() {
+  const card = $('#cScope'), on = S.sheets.includes('scope'); card.hidden = !on; if (!on) return;
+  const fb = $('#scFields'); fb.innerHTML = '';
+  S.scope.fields.forEach((f, i) => {
+    const tr = el('tr'), lb = el('input'), va = el('input');
+    lb.value = f.label; lb.placeholder = 'Line'; lb.oninput = () => { f.label = lb.value; refresh(); };
+    va.value = f.value; va.placeholder = f.hint || 'Value'; va.dataset.k = 'sc:' + f.id; va.oninput = () => { f.value = va.value; refresh(); };
+    const a = el('td'); a.appendChild(lb); const b = el('td'); b.appendChild(va); b.style.width = '70%';
+    const x = el('td'); x.appendChild(iconBtn('✕', 'Remove this line', () => { S.scope.fields.splice(i, 1); renderScope(); refresh(); }, 'del'));
+    tr.append(a, b, x); fb.appendChild(tr);
+  });
+  const tb = $('#scTables'); tb.innerHTML = '';
+  S.scope.tables.forEach(t => {
+    const box = el('div', 'phase'), head = el('div', 'phead');
+    head.append(el('strong', null, t.name), el('span', 'note', t.rows.length + ' row' + (t.rows.length !== 1 ? 's' : '')));
+    head.lastChild.style.marginLeft = 'auto';
+    const paste = el('button', 'btn ghost sm', 'Paste from Excel'), area = el('textarea');
+    area.hidden = true; area.rows = 3; area.placeholder = 'Copy the rows in Excel (' + t.cols.join(', ') + '), then paste here'; area.style.cssText = 'width:calc(100% - 20px); margin:8px 10px 0';
+    paste.onclick = () => { area.hidden = !area.hidden; if (!area.hidden) area.focus(); };
+    area.oninput = () => { const rows = tsv(area.value, t.cols.length); area.value = ''; if (!rows.length) return; t.rows.push(...rows); renderScope(); refresh(); };
+    head.appendChild(paste); box.appendChild(head); box.appendChild(area);
+    if (t.rows.length) {
+      const wrap = el('div', 'scroll'), tab = el('table'), thr = el('tr');
+      t.cols.concat('').forEach(c => thr.appendChild(el('th', null, c))); const th = el('thead'); th.appendChild(thr); tab.appendChild(th);
+      const body = el('tbody');
+      t.rows.forEach((row, ri) => { const tr = el('tr');
+        row.forEach((v, ci) => { const td = el('td'), x = el('input'); x.value = v; x.setAttribute('aria-label', t.cols[ci]); x.oninput = () => { row[ci] = x.value; }; td.appendChild(x); tr.appendChild(td); });
+        const td = el('td'); td.appendChild(iconBtn('✕', 'Remove this row', () => { t.rows.splice(ri, 1); renderScope(); refresh(); }, 'del')); tr.appendChild(td);
+        body.appendChild(tr); });
+      tab.appendChild(body); wrap.appendChild(tab); wrap.style.padding = '6px 6px 0'; box.appendChild(wrap);
+    }
+    const add = el('button', 'btn ghost sm add', '+ Add a row');
+    add.onclick = () => { t.rows.push(t.cols.map(() => '')); renderScope(); refresh(); };
+    box.appendChild(add); tb.appendChild(box);
+  });
+}
+/* step numbers follow the cards on screen */
+function numberSteps() { let n = 0; document.querySelectorAll('.card.step').forEach(c => { if (!c.hidden) c.querySelector('h2 > b').textContent = ++n; }); }
+function renderSheets() {
+  [['xScope', 'scope'], ['xRaci', 'raci'], ['xTracker', 'tracker'], ['xGantt', 'gantt']].forEach(([id, k]) => {
+    const c = $('#' + id); c.checked = S.sheets.includes(k);
+    c.onchange = () => { S.sheets = ['scope', 'raci', 'tracker', 'gantt'].filter(x => x === k ? c.checked : S.sheets.includes(x));
+      $('#xOut').textContent = ''; renderScope(); numberSteps(); refresh(); };
+  });
 }
 function renderRoles() {
   const tb = $('#roles'); tb.innerHTML = '';
@@ -208,6 +272,7 @@ function checks() {
   if (!p.name) err('Project name', 'p:name');
   if (!p.pm) err('Project manager', 'p:pm');
   if (dn(p.start) == null) err('Project start date', 'p:start');
+  if (S.sheets.includes('scope')) S.scope.fields.forEach(f => { if (f.label && !f.value.trim()) wrn('Scope: ' + f.label + ' is empty', 'sc:' + f.id); });
   const seen = {};
   S.roles.forEach(r => { if (!r.code) err('A role has no code', 'r:' + r.id + ':code'); else if (seen[r.code]) err('Role code ' + r.code + ' is used twice', 'r:' + r.id + ':code'); seen[r.code] = 1; });
   const known = new Set(roleCodes()), used = new Set();
@@ -294,7 +359,7 @@ function refresh() {
         (d.length ? ' · ' + fmt(ds(Math.min(...d.map(t => dn(t.start))))) + ' → ' + fmt(ds(Math.max(...d.map(t => dn(t.end || t.start))))) : ''); });
   }, 120);
 }
-function renderAll() { renderProject(); renderRoles(); renderPhases(); refresh(); $('#shift').classList.remove('on'); }
+function renderAll() { renderProject(); renderSheets(); renderScope(); renderRoles(); renderPhases(); numberSteps(); refresh(); $('#shift').classList.remove('on'); }
 
 /* ---------- Excel ---------- */
 /* Equadis look: navy and green (change them here for the whole Excel) */
@@ -360,7 +425,101 @@ function sheetRaci(wb, W) {
   return rows;
 }
 
-function sheetGantt(wb, W, raciRows) {
+const navyHead = row => { row.eachCell(c => { c.fill = solid(NAVY); c.font = { bold: true, color: { argb: WHITE } }; c.alignment = { vertical: 'middle', wrapText: true }; c.border = box; }); row.height = 22; headLine(row); };
+const sref = (name, col, r) => "'" + name.replace(/'/g, "''") + "'!" + col + r;
+
+function sheetScope(wb, W) {
+  const sc = S.scope, ncol = Math.max(4, ...sc.tables.map(x => x.cols.length)), last = colL(ncol - 1);
+  const ws = wb.addWorksheet(W.scope, { views: [{ showGridLines: false }] });
+  ws.columns = Array.from({ length: ncol }, (_, i) => ({ width: i ? 26 : 30 }));
+  brand(ws, last, W.scope + ' - ' + S.project.client + ' / ' + S.project.name, W);
+  let r = 5;
+  const section = txt => { ws.mergeCells('A' + r + ':' + last + r); const c = ws.getCell('A' + r); c.value = txt;
+    c.font = { bold: true, size: 13, color: { argb: NAVY } }; c.border = { bottom: { style: 'medium', color: { argb: GREEN } } }; ws.getRow(r).height = 22; r += 1; };
+  const fields = sc.fields.filter(f => f.label || f.value.trim());
+  if (fields.length) {
+    section(W.overview);
+    fields.forEach(f => {
+      ws.mergeCells('B' + r + ':' + last + r);
+      const a = ws.getCell('A' + r), b = ws.getCell('B' + r); a.value = f.label; b.value = f.value;
+      a.font = { bold: true, color: { argb: NAVY } }; a.fill = solid(PH); a.border = box; a.alignment = { vertical: 'top', wrapText: true };
+      b.border = box; b.alignment = { vertical: 'top', wrapText: true };
+      ws.getRow(r).height = Math.max(18, Math.ceil(f.value.length / (26 * (ncol - 1) * 1.1)) * 15); r++;
+    });
+    r++;
+  }
+  sc.tables.forEach(x => {
+    const rows = x.rows.filter(v => v.some(c => String(c).trim()));
+    section(x.name + ' (' + rows.length + ')');
+    const hr = ws.getRow(r); hr.values = x.cols; navyHead(hr); r++;
+    rows.forEach(v => { const row = ws.getRow(r); row.values = v; x.cols.forEach((_, i) => { const c = row.getCell(i + 1); c.border = box; c.alignment = { vertical: 'top', wrapText: true }; }); r++; });
+    r++;
+  });
+  ws.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+}
+
+/* Tracker: one row per task, the counts on top, overdue and days left worked out by Excel every day */
+function sheetTracker(wb, W, raciRows) {
+  const ws = wb.addWorksheet(W.tracker, { views: [{ state: 'frozen', ySplit: 7, showGridLines: false }] });
+  ws.columns = [{ width: 7 }, { width: 24 }, { width: 50 }, { width: 34 }, { width: 18 }, { width: 11 }, { width: 11 }, { width: 18 }, { width: 11 }, { width: 11 }, { width: 34 }];
+  brand(ws, 'K', W.tracker + ' - ' + S.project.client + ' / ' + S.project.name, W);
+  const st = W.st, today = todayN(), people = c => { const x = S.roles.find(r => r.code === c); return x && x.name.trim() ? x.name.trim() : c; };
+  const hr = ws.getRow(7); hr.values = [W.id, W.phase, W.tk, W.detail, W.owner, W.start, W.due, W.status, W.overdue, W.daysLeft, W.notes]; navyHead(hr);
+  let r = 8; const rows = {}, list = '"' + ST.map(k => st[k]).join(',') + '"';
+  const late = tk => tk.status !== 'co' && dn(tk.end || tk.start) != null && dn(tk.end || tk.start) < today;
+  phasesForExport().forEach((p, pi) => p.tasks.forEach((tk, ti) => {
+    const row = ws.getRow(r), due = dn(tk.end || tk.start);
+    row.getCell(1).value = (pi + 1) + '.' + (ti + 1);
+    row.getCell(2).value = p.name; row.getCell(3).value = (tk.milestone ? '◆ ' : '') + tk.name; row.getCell(4).value = tk.note || '';
+    row.getCell(5).value = tk.r.map(people).join(', ');
+    row.getCell(6).value = xd(tk.start); row.getCell(7).value = xd(tk.end || tk.start);
+    row.getCell(8).value = raciRows && raciRows[tk.id] ? { formula: sref(W.raci, 'B', raciRows[tk.id]), result: st[tk.status] } : st[tk.status];
+    if (!raciRows) row.getCell(8).dataValidation = { type: 'list', allowBlank: true, formulae: [list] };
+    row.getCell(9).value = { formula: 'IF(AND(H' + r + '<>"' + st.co + '",G' + r + '<>"",G' + r + '<TODAY()),"' + W.overdue + '","")', result: late(tk) ? W.overdue : '' };
+    row.getCell(10).value = { formula: 'IF(OR(H' + r + '="' + st.co + '",G' + r + '=""),"",G' + r + '-TODAY())', result: tk.status === 'co' || due == null ? '' : due - today };
+    row.getCell(11).value = tk.status === 'wc' && tk.since ? W.since + ' ' + fmt(tk.since) : '';
+    for (let c = 1; c <= 11; c++) { const x = row.getCell(c); x.border = box; x.alignment = { vertical: 'top', wrapText: [3, 4, 11].includes(c), horizontal: [1, 9, 10].includes(c) ? 'center' : undefined }; }
+    [6, 7].forEach(c => row.getCell(c).numFmt = 'dd/mm/yyyy'); row.getCell(10).numFmt = '0';
+    rows[tk.id] = r; r++;
+  }));
+  const end = Math.max(8, r - 1), H = 'H8:H' + end, all = allTasks(), n = all.length, cnt = k => all.filter(x => x.status === k).length;
+  /* the counts, rows 4-5 */
+  const ms = phasesForExport().flatMap(p => p.tasks).filter(x => x.milestone && rows[x.id]).sort((a, b) => dn(a.start) - dn(b.start));
+  const goal = ms[ms.length - 1], goalRow = goal ? rows[goal.id] : null;
+  const lastDay = Math.max(...all.map(x => dn(x.end || x.start)).filter(x => x != null));
+  const kpi = [
+    [W.tasks, { formula: 'COUNTA(C8:C' + end + ')', result: n }],
+    [st.co, { formula: 'COUNTIF(' + H + ',"' + st.co + '")', result: cnt('co') }],
+    [st.ot, { formula: 'COUNTIF(' + H + ',"' + st.ot + '")', result: cnt('ot') }],
+    [st.ar, { formula: 'COUNTIF(' + H + ',"' + st.ar + '")', result: cnt('ar') }],
+    [st.ns, { formula: 'COUNTIF(' + H + ',"' + st.ns + '")', result: cnt('ns') }],
+    [st.wc, { formula: 'COUNTIF(' + H + ',"' + st.wc + '")', result: cnt('wc') }],
+    [st.bl, { formula: 'COUNTIF(' + H + ',"' + st.bl + '")', result: cnt('bl') }],
+    [W.overdue, { formula: 'COUNTIF(I8:I' + end + ',"' + W.overdue + '")', result: all.filter(late).length }],
+    [W.pctDone, { formula: 'IF(B5=0,0,C5/B5)', result: n ? cnt('co') / n : 0 }],
+    [W.daysTo + ' ' + (goal ? goal.name : W.theEnd), goalRow ? { formula: 'G' + goalRow + '-TODAY()', result: dn(goal.start) - today }
+      : { formula: 'MAX(G8:G' + end + ')-TODAY()', result: isFinite(lastDay) ? lastDay - today : 0 }],
+  ];
+  kpi.forEach(([label, val], i) => {
+    const a = ws.getCell(4, i + 2), b = ws.getCell(5, i + 2); a.value = label; b.value = val;
+    a.font = { bold: true, size: 9, color: { argb: SOFT } }; a.alignment = { horizontal: 'center', vertical: 'bottom', wrapText: true }; a.fill = solid(PH);
+    b.font = { bold: true, size: 16, color: { argb: i === 7 || i === 6 ? 'FF9E3A2C' : i === 1 ? DKGREEN : NAVY } }; b.alignment = { horizontal: 'center' };
+    a.border = box; b.border = box; b.numFmt = i === 8 ? '0%' : '0';
+  });
+  ws.getRow(4).height = 30; ws.getRow(5).height = 26;
+  ws.autoFilter = 'A7:K' + end;
+  ws.addConditionalFormatting({ ref: H, rules: ST.map((k, i) => ({ type: 'cellIs', operator: 'equal', priority: i + 1, formulae: ['"' + st[k] + '"'],
+    style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: STFILL[k][0] } }, font: { color: { argb: STFILL[k][1] }, bold: true } } })) });
+  ws.addConditionalFormatting({ ref: 'I8:I' + end, rules: [{ type: 'cellIs', operator: 'equal', priority: 1, formulae: ['"' + W.overdue + '"'],
+    style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: STFILL.bl[0] } }, font: { color: { argb: STFILL.bl[1] }, bold: true } } }] });
+  ws.addConditionalFormatting({ ref: 'J8:J' + end, rules: [{ type: 'expression', priority: 1, formulae: ['AND(ISNUMBER(J8),J8<0)'],
+    style: { font: { color: { argb: STFILL.bl[1] }, bold: true } } }] });
+  ws.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+  return rows;
+}
+
+/* src: the sheet the Gantt reads its names and statuses from (RACI, else Tracker), so a status is changed in one place */
+function sheetGantt(wb, W, src) {
   const today = todayN(), week = S.project.scale !== 'day';
   const ts = allTasks().filter(t => dn(t.start) != null);
   const a0 = Math.min(...ts.map(t => dn(t.start))), b0 = Math.max(...ts.map(t => dn(t.end || t.start)));
@@ -392,12 +551,12 @@ function sheetGantt(wb, W, raciRows) {
   const hit = (a, b, d) => week ? (a <= d + 6 && b >= d) : (a <= d && b >= d);
   const code = tk => tk.milestone ? 6 : tk.status === 'co' ? 2 : tk.status === 'wc' ? 7 : (tk.status === 'bl' || dn(tk.end || tk.start) < today) ? 5 : tk.status === 'ns' ? 4 : 1;
   let r = 6;
-  const ref = (key, col, val) => raciRows && raciRows[key] ? { formula: W.raci + '!' + col + raciRows[key], result: val } : val;
+  const ref = (key, f, val) => src && src.rows[key] ? { formula: sref(src.sheet, src.cols[f], src.rows[key]), result: val } : val;
   phasesForExport().forEach(p => {
     const pr = r, f = r + 1, l = r + p.tasks.length, row = ws.getRow(pr);
     const dts = p.tasks.filter(x => dn(x.start) != null), pa = dts.length ? Math.min(...dts.map(x => dn(x.start))) : null, pb = dts.length ? Math.max(...dts.map(x => dn(x.end || x.start))) : null;
-    row.getCell(1).value = ref(p.id, 'A', p.name);
-    if (raciRows) { const dn_ = p.tasks.filter(x => x.status === 'co').length; row.getCell(2).value = ref(p.id, 'B', dn_ + ' / ' + p.tasks.length + ' ' + W.done); }
+    row.getCell(1).value = ref(p.id, 'name', p.name);
+    if (src && src.rows[p.id]) { const dn_ = p.tasks.filter(x => x.status === 'co').length; row.getCell(2).value = ref(p.id, 'status', dn_ + ' / ' + p.tasks.length + ' ' + W.done); }
     row.getCell(4).value = { formula: 'IF(COUNT(D' + f + ':D' + l + ')=0,"",MIN(D' + f + ':D' + l + '))', result: pa != null ? new Date(pa * 864e5) : '' };
     row.getCell(5).value = { formula: 'IF(COUNT(E' + f + ':E' + l + ')=0,"",MAX(E' + f + ':E' + l + '))', result: pb != null ? new Date(pb * 864e5) : '' };
     row.getCell(6).value = { formula: 'IF(OR(D' + pr + '="",E' + pr + '=""),"",E' + pr + '-D' + pr + '+1)', result: pa != null ? pb - pa + 1 : '' };
@@ -406,15 +565,15 @@ function sheetGantt(wb, W, raciRows) {
     r++;
     p.tasks.forEach(tk => {
       const row = ws.getRow(r), a = dn(tk.start), b = dn(tk.end || tk.start);
-      row.getCell(1).value = ref(tk.id, 'A', (tk.milestone && !raciRows ? '◆ ' : '') + tk.name);
-      row.getCell(2).value = ref(tk.id, 'B', st[tk.status]);
-      row.getCell(3).value = ref(tk.id, 'C', tk.r.join(', '));
+      row.getCell(1).value = ref(tk.id, 'name', (tk.milestone && !(src && src.mark) ? '◆ ' : '') + tk.name);
+      row.getCell(2).value = ref(tk.id, 'status', st[tk.status]);
+      row.getCell(3).value = ref(tk.id, 'resp', src && src.cols.resp === 'E' ? tk.r.map(c => { const x = S.roles.find(y => y.code === c); return x && x.name.trim() ? x.name.trim() : c; }).join(', ') : tk.r.join(', '));
       row.getCell(4).value = xd(tk.start); row.getCell(5).value = xd(tk.end || tk.start);
       row.getCell(6).value = { formula: 'IF(OR(D' + r + '="",E' + r + '=""),"",E' + r + '-D' + r + '+1)', result: a != null ? b - a + 1 : '' };
       const val = tk.milestone ? '6' : inner(r);
       for (let k = 0; k < ncol; k++) row.getCell(C0 + k + 1).value = { formula: 'IF(OR($D' + r + '="",$E' + r + '=""),"",IF(' + inRange(r, k) + ',' + val + ',""))', result: a != null && hit(a, b, first + k * step) ? code(tk) : '' };
       row.getCell(1).alignment = { indent: 1, vertical: 'middle' };
-      if (!raciRows) row.getCell(2).dataValidation = { type: 'list', allowBlank: true, formulae: ['"' + ST.map(k => st[k]).join(',') + '"'] };
+      if (!src) row.getCell(2).dataValidation = { type: 'list', allowBlank: true, formulae: ['"' + ST.map(k => st[k]).join(',') + '"'] };
       for (let c = 1; c <= 6; c++) row.getCell(c).border = box;
       r++;
     });
@@ -441,8 +600,11 @@ async function buildWorkbook(opts) {
   const W = L[S.project.lang];
   const wb = new ExcelJS.Workbook(); wb.creator = 'TPM Desk - Project planner'; wb.created = new Date();
   wb.calcProperties.fullCalcOnLoad = true;
+  if (opts.scope) sheetScope(wb, W);
   const raciRows = opts.raci ? sheetRaci(wb, W) : null;
-  if (opts.gantt) sheetGantt(wb, W, raciRows);
+  const trackRows = opts.tracker ? sheetTracker(wb, W, raciRows) : null;
+  if (opts.gantt) sheetGantt(wb, W, raciRows ? { sheet: W.raci, rows: raciRows, cols: { name: 'A', status: 'B', resp: 'C' } }
+    : trackRows ? { sheet: W.tracker, rows: trackRows, mark: true, cols: { name: 'C', status: 'H', resp: 'E' } } : null);
   const data = wb.addWorksheet('_plan', { state: 'veryHidden' }), js = JSON.stringify(S);
   for (let i = 0, r = 1; i < js.length; i += 30000, r++) data.getCell('A' + r).value = js.slice(i, i + 30000);
   return wb.xlsx.writeBuffer();
@@ -459,16 +621,16 @@ async function saveFile(buf, name) {
 $('#xGo').onclick = async () => {
   const out = $('#xOut'); out.className = 'status';
   if ($('#xGo').dataset.blocked) { $('#cCheck').scrollIntoView({ behavior: 'smooth' }); const f = checks().find(c => c.lvl === 'err' && c.k); if (f) focusKey(f.k); return; }
-  const opts = { raci: $('#xRaci').checked, gantt: $('#xGantt').checked };
-  if (!opts.raci && !opts.gantt) { out.className = 'status ko'; out.textContent = 'Tick RACI, Gantt or both.'; return; }
+  const opts = sheetOpts(), W = L[S.project.lang], on = Object.keys(opts).filter(k => opts[k]);
+  if (!on.length) { out.className = 'status ko'; out.textContent = 'Tick at least one sheet.'; return; }
   try {
-    const kind = opts.raci && opts.gantt ? 'Planning RACI' : opts.raci ? 'RACI' : 'Gantt';
+    const kind = on.length > 1 ? 'Planning' : W[on[0]];
     const name = safeName(S.project.client + ' - ' + S.project.name + ' - ' + kind + ' ' + ds(todayN()).split('-').reverse().join('')) + '.xlsx';
     await saveFile(await buildWorkbook(opts), name);
     out.className = 'status ok'; out.textContent = 'Saved ' + name;
   } catch (e) { out.className = 'status ko'; out.textContent = 'Export failed: ' + (e && e.message || e); }
 };
-$('#xRaci').onchange = $('#xGantt').onchange = () => { $('#xOut').textContent = ''; };
+function sheetOpts() { const o = {}; ['scope', 'raci', 'tracker', 'gantt'].forEach(k => o[k] = S.sheets.includes(k)); if (!allTasks().some(t => dn(t.start) != null)) o.gantt = false; return o; }
 
 /* ---------- open a saved plan (the planner's Excel, or a .json) ---------- */
 $('#openBtn').onclick = () => $('#openFile').click();
@@ -485,7 +647,7 @@ $('#openFile').onchange = async e => {
     }
     const o = JSON.parse(js); if (!o || o.v !== 1 || !Array.isArray(o.phases)) throw new Error('unknown plan format');
     if (!o.id) o.id = uid() + uid();
-    S = o; S.file = null; renderAll(); note.textContent = 'Opened ' + f.name;
+    S = upgrade(o); S.file = null; renderAll(); note.textContent = 'Opened ' + f.name;
   } catch (err) { note.textContent = 'Could not open ' + f.name + ': ' + (err.message || err); }
 };
 
@@ -502,6 +664,7 @@ $('#tplGo').onclick = () => {
   if (keep) Object.assign(S.project, keep);
   renderAll();
 };
+$('#scAdd').onclick = () => { S.scope.fields.push({ id: uid(), label: '', value: '', hint: '' }); renderScope(); refresh(); };
 $('#phaseAdd').onclick = () => { S.phases.push({ id: uid(), name: '', tasks: [] }); renderPhases(); refresh(); focusKey('ph:' + S.phases[S.phases.length - 1].id); };
 $('#roleAdd').onclick = () => { S.roles.push({ id: uid(), code: '', title: '', name: '', side: 'Equadis' }); renderRoles(); refresh(); focusKey('r:' + S.roles[S.roles.length - 1].id + ':code'); };
 
@@ -558,7 +721,7 @@ async function openArchived(file) {
     const ws = wb.getWorksheet('_plan'); if (!ws) throw new Error('no plan inside');
     let js = ''; ws.eachRow(r => { js += String(r.getCell(1).value || ''); });
     const o = JSON.parse(js); if (!o.id) o.id = uid() + uid();
-    S = o; S.file = file; renderAll(); drawProjects(); arOut('Opened ' + file, true);
+    S = upgrade(o); S.file = file; renderAll(); drawProjects(); arOut('Opened ' + file, true);
     $('#cProject').scrollIntoView({ behavior: 'smooth' });
   } catch (e) { arOut('Could not open ' + file + ': ' + (e.message || e)); }
 }
@@ -567,7 +730,8 @@ async function archiveSave(overwrite) {
   const file = planFile(), out = $('#xOut');
   try {
     const keep = S.file; S.file = null;                          // the file name is not part of the plan itself
-    const buf = await buildWorkbook({ raci: true, gantt: allTasks().some(t => dn(t.start) != null) }); S.file = keep;
+    const o = sheetOpts(); if (!o.raci && !o.tracker) o.raci = true;
+    const buf = await buildWorkbook(o); S.file = keep;
     await link('/archive/save', { file, data: b64of(buf), id: S.id, overwrite: !!overwrite });
     S.file = file; out.className = 'status ok'; out.textContent = 'Saved in the archive: ' + file;
     archiveRefresh();

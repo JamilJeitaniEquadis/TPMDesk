@@ -61,6 +61,7 @@ td{padding:3px 4px; vertical-align:middle}
 td input,td select{width:100%; padding:5px 6px; font-size:13.5px}
 td input[type=date]{min-width:128px}
 td.num input{width:58px; text-align:right}
+.scope td:first-child input{min-width:170px; font-weight:600} .scope td input{width:100%}
 .roles td:first-child input{width:80px; font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; text-transform:uppercase}
 .phase{border:1px solid var(--rule); border-radius:9px; margin:12px 0; overflow:hidden}
 .phead{display:flex; gap:8px; align-items:center; background:var(--phase); padding:8px 10px}
@@ -124,7 +125,7 @@ td.num input{width:58px; text-align:right}
 <body>
 <main>
   <h1>Project planner</h1>
-  <p class="lede">One template for every plan. Fill it in, let the checks catch what is missing, then export the RACI, the Gantt, or both, in one Excel file.</p>
+  <p class="lede">One template for every plan. Fill it in, let the checks catch what is missing, then export the sheets you need (scope, RACI, tracker, Gantt) in one Excel file.</p>
 
   <div class="toolbar">
     <select id="tpl" aria-label="Template"></select>
@@ -158,7 +159,7 @@ td.num input{width:58px; text-align:right}
     <p class="status" id="arOut"></p>
   </section>
 
-  <section class="card" id="cProject">
+  <section class="card step" id="cProject">
     <h2><b>1</b>Project</h2>
     <div class="grid">
       <label class="f"><span>Client *</span><input id="pClient" placeholder="Client name" autocomplete="off"></label>
@@ -173,20 +174,27 @@ td.num input{width:58px; text-align:right}
     </div>
   </section>
 
-  <section class="card" id="cRoles">
+  <section class="card step" id="cScope" hidden>
+    <h2><b>2</b>Scope<span class="sub">The first sheet: what the project covers</span></h2>
+    <div class="scroll"><table class="scope"><tbody id="scFields"></tbody></table></div>
+    <button class="btn ghost sm" id="scAdd" style="margin-top:8px">+ Add a line</button>
+    <div id="scTables"></div>
+  </section>
+
+  <section class="card step" id="cRoles">
     <h2><b>2</b>Roles<span class="sub">The codes you use in the RACI</span></h2>
     <div class="scroll"><table class="roles"><thead><tr><th>Code</th><th>Role</th><th>Name</th><th>Side</th><th></th></tr></thead><tbody id="roles"></tbody></table></div>
     <button class="btn ghost sm" id="roleAdd" style="margin-top:8px">+ Add a role</button>
   </section>
 
-  <section class="card" id="cPlan">
+  <section class="card step" id="cPlan">
     <h2><b>3</b>Plan<span class="sub" id="planSum"></span></h2>
     <p class="note" style="margin:0 0 4px">R does the work · A owns it and approves (one per task) · C is asked before · I is told after. ◆ marks a milestone (one day).</p>
     <div id="phases"></div>
     <button class="btn ghost" id="phaseAdd">+ Add a phase</button>
   </section>
 
-  <section class="card" id="cCheck">
+  <section class="card step" id="cCheck">
     <h2><b>4</b>Check and export</h2>
     <div id="checks"></div>
     <h3 style="font-size:14px; margin:16px 0 6px">Gantt preview</h3>
@@ -194,7 +202,9 @@ td.num input{width:58px; text-align:right}
     <div class="legend"><span><i style="background:var(--bar-ot)"></i>On track</span><span><i style="background:var(--bar-co)"></i>Completed</span><span><i style="background:var(--bar-ns)"></i>Not started</span><span><i style="background:var(--bar-late)"></i>Late or blocked</span><span><i style="background:var(--bar-wc)"></i>Waiting on client</span><span><i style="background:var(--bar-ms)"></i>Milestone</span><span><i style="background:var(--stop); width:2px"></i>Today</span></div>
     <div class="export">
       <span class="note">Send</span>
+      <label><input type="checkbox" id="xScope"> Scope</label>
       <label><input type="checkbox" id="xRaci" checked> RACI</label>
+      <label><input type="checkbox" id="xTracker"> Tracker</label>
       <label><input type="checkbox" id="xGantt" checked> Gantt</label>
       <button class="btn" id="xGo">Export Excel</button>
       <button class="btn ghost" id="xSave" hidden>Save to archive</button>
